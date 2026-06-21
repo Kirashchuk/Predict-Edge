@@ -1,0 +1,68 @@
+@import '@fontsource/space-grotesk/400.css';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark-first trading theme (slate base + gold accent), mirroring the
+   Templars app CSS-variable system. */
+@layer base {
+  :root,
+  .dark {
+    --background: 220 26% 7%;
+    --foreground: 210 20% 92%;
+
+    --surface: 220 22% 10%;
+    --surface-elevated: 220 20% 13%;
+
+    --card: 220 22% 10%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 24% 9%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 43 96% 56%;
+    --primary-foreground: 220 40% 8%;
+
+    --secondary: 220 16% 18%;
+    --secondary-foreground: 210 20% 92%;
+
+    --muted: 220 16% 16%;
+    --muted-foreground: 215 14% 60%;
+
+    --accent: 220 16% 18%;
+    --accent-foreground: 210 20% 92%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+
+    --success: 152 60% 45%;
+    --success-foreground: 152 60% 12%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 38 92% 12%;
+
+    --gold: 43 96% 56%;
+    --gold-light: 43 96% 66%;
+    --gold-dark: 38 92% 46%;
+
+    --border: 220 16% 20%;
+    --input: 220 16% 20%;
+    --ring: 43 96% 56%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'tnum' 1;
+  }
+}
