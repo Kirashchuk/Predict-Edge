@@ -70,12 +70,12 @@ export default function MarketDetail() {
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: 'success' | 'destructive' }) {
   return (
-    <div className="rounded-md border border-border bg-surface p-3">
-      <div className="text-data-xs text-muted-foreground">{label}</div>
+    <div className="corner-markers border border-border bg-surface p-3">
+      <div className="data-label">{label}</div>
       <div
         className={
-          'font-mono text-data-lg ' +
-          (accent === 'success' ? 'text-success' : accent === 'destructive' ? 'text-destructive' : '')
+          'mt-1 font-mono text-data-lg ' +
+          (accent === 'success' ? 'text-success' : accent === 'destructive' ? 'text-destructive' : 'text-foreground')
         }
       >
         {value}

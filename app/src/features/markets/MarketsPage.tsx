@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/shared/ui/primitives/button';
 import { MarketCard } from './MarketCard';
 import { CreateMarketDialog } from './CreateMarketDialog';
 import { STATIC_MARKETS, CATEGORIES, type MarketCategory, type MarketEntry } from './catalog';
@@ -29,12 +28,13 @@ export default function MarketsPage() {
   const visible = active === 'All' ? all : all.filter((m) => m.category === active);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-sans text-heading-md font-bold">Prediction Markets</h1>
-          <p className="text-data-sm text-muted-foreground">
-            Trade YES/NO positions on Arc Testnet. Resolution by UMA Optimistic Oracle.
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
+        <div className="space-y-2">
+          <span className="data-label text-gold">// PREDICTION MARKETS</span>
+          <h1 className="font-sans text-heading-lg font-bold">Forged in the Markets</h1>
+          <p className="data-value text-muted-foreground">
+            Trade YES/NO positions on Arc Testnet. Trustless resolution by UMA Optimistic Oracle V2.
           </p>
         </div>
         <CreateMarketDialog />
@@ -42,14 +42,18 @@ export default function MarketsPage() {
 
       <div className="flex flex-wrap gap-2">
         {(['All', ...CATEGORIES] as const).map((c) => (
-          <Button
+          <button
             key={c}
-            size="sm"
-            variant={active === c ? 'default' : 'outline'}
             onClick={() => setActive(c)}
+            className={
+              'btn-brutal ' +
+              (active === c
+                ? 'border-gold bg-gold/15 text-gold'
+                : 'border-border text-muted-foreground hover:border-border-strong hover:text-foreground')
+            }
           >
             {c}
-          </Button>
+          </button>
         ))}
       </div>
 

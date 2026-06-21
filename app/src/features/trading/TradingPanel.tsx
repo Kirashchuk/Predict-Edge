@@ -51,7 +51,8 @@ export function TradingPanel({ amm, resolved }: { amm: Address; resolved?: boole
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="corner-markers border border-border bg-card p-4">
+      <div className="data-label mb-3 text-gold">// TRADE</div>
       <Tabs value={side} onValueChange={(v) => setSide(v as 'buy' | 'sell')}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="buy">Buy</TabsTrigger>
