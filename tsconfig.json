@@ -1,4 +1,5 @@
 {
+  "//": "Root tsconfig now scopes only the Hardhat/contracts tooling. The Vite frontend (app/) and Hono backend (server/) each have their own tsconfig.",
   "ts-node": {
     "compilerOptions": {
       "module": "commonjs",
@@ -7,39 +8,17 @@
   },
   "compilerOptions": {
     "target": "ES2020",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "next-env.d.ts",
-    "app/**/*.ts",
-    "app/**/*.tsx",
-    "components/**/*.ts",
-    "components/**/*.tsx",
-    "hooks/**/*.ts",
-    "lib/**/*.ts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "*.ts",
-    "*.mts"
-  ],
-  "exclude": ["node_modules", "scripts", "contracts"]
+  "include": ["hardhat.config.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "app", "server", "contracts", "artifacts", "typechain-types"]
 }

@@ -9,6 +9,8 @@
 | Документ | Що всередині |
 |---|---|
 | [ADR-001-architecture.md](ADR-001-architecture.md) | Архітектурні рішення (D1–D7), альтернативи, trade-offs, наслідки, action items |
+| [ADR-002-templars-stack.md](ADR-002-templars-stack.md) | Реплатформа Next.js → стек Templars (Vite + Bun/Hono + feature-sliced) |
+| [tech-stack.md](tech-stack.md) | Карта технічного стеку (копія Templars) + команди |
 | [architecture-diagram.md](architecture-diagram.md) | C4 (Context/Container/Component) + sequence-потоки: create / trade / resolve / redeem |
 | [smart-contract-map.md](smart-contract-map.md) | Карта контрактів: функції, події, інтеграція з UMA OO V2, межі довіри |
 | [deployment-plan.md](deployment-plan.md) | Відтворюваний план деплою в Arc Testnet «з нуля» + `.env.local` шаблон |

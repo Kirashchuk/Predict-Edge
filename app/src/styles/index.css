@@ -1,0 +1,191 @@
+@import '@fontsource/jetbrains-mono/300.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/jetbrains-mono/700.css';
+@import '@fontsource/space-grotesk/400.css';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/600.css';
+@import '@fontsource/space-grotesk/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Templar Design System — Nado-inspired brutalist (ported from Templars Trade) */
+
+@layer base {
+  :root {
+    --motion-fast: 120ms;
+    --motion-base: 180ms;
+    --motion-slow: 280ms;
+    --ease-snap: cubic-bezier(0.32, 0.72, 0, 1);
+    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --radius: 2px;
+    --radius-panel: 6px;
+    --radius-card: 4px;
+    --radius-chip: 9999px;
+  }
+
+  /* Dark mode (default) */
+  :root,
+  .dark {
+    --background: 220 16% 5%;
+    --foreground: 40 22% 92%;
+    --surface: 220 13% 9%;
+    --surface-elevated: 220 12% 13%;
+    --surface-overlay: 220 14% 16%;
+    --surface-chart: 220 25% 5%;
+
+    --card: 220 13% 9%;
+    --card-foreground: 40 22% 92%;
+    --card-border: 220 11% 18%;
+
+    --popover: 220 14% 11%;
+    --popover-foreground: 40 22% 92%;
+
+    --primary: 43 90% 50%;
+    --primary-foreground: 220 16% 5%;
+    --primary-glow: 43 90% 60%;
+
+    --secondary: 220 12% 14%;
+    --secondary-foreground: 40 22% 92%;
+
+    --accent: 43 90% 50%;
+    --accent-foreground: 220 16% 5%;
+
+    --success: 142 70% 45%;
+    --success-foreground: 220 16% 5%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 22% 92%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 16% 5%;
+
+    --muted: 220 11% 16%;
+    --muted-foreground: 220 10% 56%;
+
+    --border: 220 11% 17%;
+    --border-strong: 220 11% 24%;
+    --border-subtle: 220 12% 13%;
+    --input: 220 12% 13%;
+    --ring: 43 90% 50%;
+
+    --gold: 43 90% 50%;
+    --gold-light: 43 90% 58%;
+    --gold-dark: 43 90% 40%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(43 90% 50%), hsl(43 90% 60%));
+    --gradient-surface: linear-gradient(145deg, hsl(220 16% 5%), hsl(220 13% 9%));
+
+    --shadow-card: 0 1px 2px hsl(220 16% 2% / 0.5), 0 2px 8px hsl(220 16% 2% / 0.4);
+    --shadow-elevated: 0 4px 12px hsl(220 16% 2% / 0.6), 0 16px 40px hsl(220 16% 2% / 0.5);
+    --shadow-glow: 0 0 24px hsl(43 90% 50% / 0.18);
+    --shadow-focus: 0 0 0 2px hsl(220 16% 5%), 0 0 0 4px hsl(43 90% 50% / 0.55);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: 0.01em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  *:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    border-radius: var(--radius-card);
+  }
+  [role='tab']:focus-visible {
+    box-shadow: none;
+    outline: 2px solid hsl(var(--ring) / 0.6);
+    outline-offset: 1px;
+  }
+}
+
+/* Surfaces — explicit elevation hierarchy */
+.surface-1 { background: hsl(var(--surface)); border: 1px solid hsl(var(--border)); }
+.surface-2 { background: hsl(var(--surface-elevated)); border: 1px solid hsl(var(--border)); }
+.surface-3 { background: hsl(var(--surface-overlay)); border: 1px solid hsl(var(--border-strong)); box-shadow: var(--shadow-elevated); }
+
+/* Nado-style gold corner markers */
+.corner-markers { position: relative; }
+.corner-markers::before, .corner-markers::after {
+  content: ''; position: absolute; width: 8px; height: 8px; border-color: hsl(var(--gold));
+}
+.corner-markers::before { top: -1px; left: -1px; border-top: 1px solid; border-left: 1px solid; }
+.corner-markers::after { top: -1px; right: -1px; border-top: 1px solid; border-right: 1px solid; }
+.corner-markers-bottom::before, .corner-markers-bottom::after {
+  content: ''; position: absolute; width: 8px; height: 8px; border-color: hsl(var(--gold));
+}
+.corner-markers-bottom::before { bottom: -1px; left: -1px; border-bottom: 1px solid; border-left: 1px solid; }
+.corner-markers-bottom::after { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
+
+/* Data readout style */
+.data-label {
+  @apply text-xs uppercase tracking-[0.2em] text-muted-foreground;
+  font-family: 'JetBrains Mono', monospace;
+}
+.data-value {
+  @apply text-sm font-medium text-foreground;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Brutalist button — animated press + lift */
+.btn-brutal {
+  @apply px-6 py-2.5 text-xs uppercase tracking-[0.15em] font-semibold border;
+  font-family: 'JetBrains Mono', monospace;
+  transition:
+    transform var(--motion-fast) var(--ease-snap),
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    color var(--motion-base) var(--ease-out-soft);
+}
+.btn-brutal:hover { transform: translateY(-1px); }
+.btn-brutal:active { transform: translateY(0); }
+
+.hover-surface { transition: background-color var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft); }
+.hover-surface:hover { background-color: hsl(var(--surface-elevated)); border-color: hsl(var(--border-strong)); }
+
+/* Grid pattern overlay */
+.grid-pattern {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Scan line */
+@keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+.scanline {
+  position: fixed; top: 0; left: 0; right: 0; height: 1px;
+  background: hsl(var(--gold) / 0.06); animation: scanline 8s linear infinite;
+  pointer-events: none; z-index: 100;
+}
+
+/* Staggered reveal */
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.rise-in { animation: rise-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Price flash */
+@keyframes price-up { 0% { color: hsl(var(--success)); } 100% { color: inherit; } }
+.flash-up { animation: price-up 600ms var(--ease-out-soft) forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
