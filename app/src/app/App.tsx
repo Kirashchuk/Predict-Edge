@@ -7,6 +7,7 @@ import { Toaster } from '@/shared/ui/primitives/sonner';
 import { ThemeProvider } from '@/app/providers/ThemeProvider';
 import { Layout } from '@/app/Layout';
 import { wagmiConfig } from '@/features/wallet/wagmi';
+import { WalletProvider } from '@/features/wallet/WalletContext';
 import { createQueryClient } from '@/shared/lib/query-client';
 
 import MarketsPage from '@/features/markets/MarketsPage';
@@ -28,6 +29,7 @@ const App = () => (
   <ThemeProvider>
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
+        <WalletProvider>
         <TooltipProvider>
           <Toaster />
           <BrowserRouter>
@@ -61,6 +63,7 @@ const App = () => (
             </Suspense>
           </BrowserRouter>
         </TooltipProvider>
+        </WalletProvider>
       </QueryClientProvider>
     </WagmiProvider>
   </ThemeProvider>

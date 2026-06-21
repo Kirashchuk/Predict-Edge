@@ -1,67 +1,140 @@
 import { useParams, Link } from 'react-router-dom';
-import { type Address } from 'viem';
+import { useReadContract } from 'wagmi';
+import { useQuery } from '@tanstack/react-query';
+import { type Address, formatUnits } from 'viem';
 import { ArrowLeft } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/primitives/card';
-import { Badge } from '@/shared/ui/primitives/badge';
 import { Button } from '@/shared/ui/primitives/button';
+import { toast } from '@/shared/ui/primitives/sonner';
+import { ERC20_ABI } from '@/shared/lib/contracts/abis';
+import { ARCT_ADDRESS, OO_V2_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { formatCollateral } from '@/shared/lib/contracts/types';
 import { fmtPricePct, fmtToken } from '@/shared/lib/format';
+import { useWallet } from '@/features/wallet/WalletContext';
 import { TradingPanel } from '@/features/trading/TradingPanel';
 import { useAmmState } from './hooks/useAmmState';
+import { useMarketState, useTokenBalances } from './hooks/useMarketData';
+import { useSettlePosition } from './hooks/useMarketActions';
+import { PriceChart } from './PriceChart';
 import { STATIC_MARKETS } from './catalog';
+import { fetchUserMarkets } from './api/markets';
 
 export default function MarketDetail() {
   const { address } = useParams<{ address: string }>();
   const market = address as Address | undefined;
+  const { address: account } = useWallet();
 
-  const known = STATIC_MARKETS.find((m) => m.address?.toLowerCase() === address?.toLowerCase());
-  const amm = known?.ammAddress as Address | undefined;
+  // Resolve the AMM address from the static catalog or user-created markets.
+  const { data: userMarkets = [] } = useQuery({ queryKey: ['user-markets'], queryFn: fetchUserMarkets });
+  const known =
+    STATIC_MARKETS.find((m) => m.address?.toLowerCase() === address?.toLowerCase()) ??
+    userMarkets.find((m) => m.address.toLowerCase() === address?.toLowerCase());
+  const amm = (known && 'ammAddress' in known ? known.ammAddress : undefined) as Address | undefined;
+
+  const ms = useMarketState(market);
   const state = useAmmState(market, amm);
+  const balances = useTokenBalances(market, ms.longTokenAddress, ms.shortTokenAddress);
+  const settlePos = useSettlePosition(market);
+
+  const { data: arctAllowanceToOo } = useReadContract({
+    address: ARCT_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: account ? [account, OO_V2_ADDRESS] : undefined,
+    query: { enabled: !!account, refetchInterval: 5000 },
+  });
+
+  const yes = state.yesPrice ? Number(formatUnits(state.yesPrice, 18)) : 0.5;
+  const title = ms.question ?? known?.title ?? 'Prediction market';
 
   if (!market || !amm) {
     return (
       <div className="space-y-4">
         <BackLink />
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Market not found or AMM address unavailable. (Deployed addresses come from the
-            VITE_*_ADDRESS env — run the deploy + sync-env script.)
-          </CardContent>
-        </Card>
+        <div className="corner-markers border border-border bg-card p-10 text-center text-muted-foreground">
+          Market not found or AMM address unavailable. Run the deploy + <code>npm run sync-env</code>.
+        </div>
       </div>
     );
+  }
+
+  async function redeem() {
+    if (!balances.longBalance && !balances.shortBalance) return;
+    toast.message('Redeeming positions…');
+    await settlePos.settle(balances.longBalance ?? 0n, balances.shortBalance ?? 0n);
+    toast.success('Redeem submitted');
   }
 
   return (
     <div className="space-y-4">
       <BackLink />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Badge variant={state.resolved ? 'warning' : 'success'}>
-                  {state.resolved ? 'Resolved' : 'Live'}
-                </Badge>
-                <span className="font-mono text-data-xs text-muted-foreground">{market}</span>
-              </div>
-              <CardTitle>{known?.title ?? 'Prediction market'}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Stat label="YES price" value={fmtPricePct(state.yesPrice)} accent="success" />
-                <Stat label="NO price" value={fmtPricePct(state.noPrice)} accent="destructive" />
-                <Stat label="Reserve YES" value={fmtToken(state.reserveYes)} />
-                <Stat label="Reserve NO" value={fmtToken(state.reserveNo)} />
-              </div>
-              <p className="text-data-xs text-muted-foreground">
-                Fee: {state.feeBps ? `${Number(state.feeBps) / 100}%` : '—'} · Constant-product AMM ·
-                Resolution by UMA Optimistic Oracle V2
-              </p>
-            </CardContent>
-          </Card>
+
+      <div className="corner-markers border border-border bg-card p-5">
+        <div className="mb-2 flex items-center gap-3">
+          <span className={`data-label ${state.resolved ? 'text-warning' : 'text-success'}`}>
+            {state.resolved ? '● RESOLVED' : '● LIVE'}
+          </span>
+          <span className="font-mono text-data-xs text-muted-foreground">{market}</span>
         </div>
+        <h1 className="font-sans text-heading-md font-bold">{title}</h1>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <PriceChart yes={yes} seed={market} live={!state.resolved} />
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat label="YES PRICE" value={fmtPricePct(state.yesPrice)} accent="success" />
+            <Stat label="NO PRICE" value={fmtPricePct(state.noPrice)} accent="destructive" />
+            <Stat label="RESERVE YES" value={fmtToken(state.reserveYes)} />
+            <Stat label="RESERVE NO" value={fmtToken(state.reserveNo)} />
+          </div>
+
+          {/* Portfolio */}
+          <div className="corner-markers border border-border bg-card p-4">
+            <div className="data-label mb-3 text-gold">// YOUR PORTFOLIO</div>
+            {account ? (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <Stat label="ARCT" value={formatCollateral(balances.arctBalance)} />
+                  <Stat label="YES TOKENS" value={formatCollateral(balances.longBalance)} accent="success" />
+                  <Stat label="NO TOKENS" value={formatCollateral(balances.shortBalance)} accent="destructive" />
+                </div>
+                {ms.receivedSettlementPrice && (balances.longBalance || balances.shortBalance) ? (
+                  <Button
+                    className="mt-3 w-full"
+                    disabled={settlePos.isPending || settlePos.isConfirming}
+                    onClick={redeem}
+                  >
+                    {settlePos.isPending || settlePos.isConfirming ? 'Redeeming…' : 'Redeem positions for ARCT'}
+                  </Button>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-data-sm text-muted-foreground">Connect a wallet to see your positions.</p>
+            )}
+          </div>
+
+          <p className="text-data-xs text-muted-foreground">
+            Fee: {state.feeBps ? `${Number(state.feeBps) / 100}%` : '—'} · Constant-product AMM · Resolution by UMA
+            Optimistic Oracle V2 ·{' '}
+            {ms.receivedSettlementPrice
+              ? `Settled @ ${formatUnits(ms.settlementPrice ?? 0n, 18)}`
+              : 'Awaiting resolution'}
+          </p>
+        </div>
+
         <div>
-          <TradingPanel amm={amm} resolved={state.resolved} />
+          <TradingPanel
+            market={market}
+            amm={amm}
+            longToken={ms.longTokenAddress}
+            shortToken={ms.shortTokenAddress}
+            priceIdentifier={ms.priceIdentifier}
+            requestTimestamp={ms.requestTimestamp}
+            ancillaryDataHex={ms.ancillaryDataHex}
+            resolved={state.resolved}
+            arctAllowanceToOo={arctAllowanceToOo as bigint | undefined}
+          />
         </div>
       </div>
     </div>

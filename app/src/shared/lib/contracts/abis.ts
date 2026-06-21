@@ -28,6 +28,38 @@ export const MARKET_ABI = [
   { inputs: [{ name: 'tokensToRedeem', type: 'uint256' }], name: 'redeem', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'longTokensToRedeem', type: 'uint256' }, { name: 'shortTokensToRedeem', type: 'uint256' }], name: 'settle', outputs: [{ name: 'collateralReturned', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'settlementPrice', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'customAncillaryData', outputs: [{ name: '', type: 'bytes' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'priceIdentifier', outputs: [{ name: '', type: 'bytes32' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'requestTimestamp', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'proposerReward', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'optimisticOracleProposerBond', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'optimisticOracleLivenessTime', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+] as const;
+
+export const OO_V2_ABI = [
+  { inputs: [{ name: 'requester', type: 'address' }, { name: 'identifier', type: 'bytes32' }, { name: 'timestamp', type: 'uint256' }, { name: 'ancillaryData', type: 'bytes' }], name: 'getState', outputs: [{ name: '', type: 'uint8' }], stateMutability: 'view', type: 'function' },
+  {
+    inputs: [{ name: 'requester', type: 'address' }, { name: 'identifier', type: 'bytes32' }, { name: 'timestamp', type: 'uint256' }, { name: 'ancillaryData', type: 'bytes' }],
+    name: 'getRequest',
+    outputs: [{
+      name: '', type: 'tuple', components: [
+        { name: 'proposer', type: 'address' }, { name: 'disputer', type: 'address' }, { name: 'currency', type: 'address' }, { name: 'settled', type: 'bool' },
+        { name: 'requestSettings', type: 'tuple', components: [
+          { name: 'eventBased', type: 'bool' }, { name: 'refundOnDispute', type: 'bool' }, { name: 'callbackOnPriceProposed', type: 'bool' }, { name: 'callbackOnPriceDisputed', type: 'bool' }, { name: 'callbackOnPriceSettled', type: 'bool' }, { name: 'bond', type: 'uint256' }, { name: 'customLiveness', type: 'uint256' },
+        ] },
+        { name: 'proposedPrice', type: 'int256' }, { name: 'resolvedPrice', type: 'int256' }, { name: 'expirationTime', type: 'uint256' }, { name: 'reward', type: 'uint256' }, { name: 'finalFee', type: 'uint256' },
+      ],
+    }],
+    stateMutability: 'view', type: 'function',
+  },
+  { inputs: [{ name: 'requester', type: 'address' }, { name: 'identifier', type: 'bytes32' }, { name: 'timestamp', type: 'uint256' }, { name: 'ancillaryData', type: 'bytes' }, { name: 'proposedPrice', type: 'int256' }], name: 'proposePrice', outputs: [{ name: 'totalBond', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'requester', type: 'address' }, { name: 'identifier', type: 'bytes32' }, { name: 'timestamp', type: 'uint256' }, { name: 'ancillaryData', type: 'bytes' }], name: 'disputePrice', outputs: [{ name: 'totalBond', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'requester', type: 'address' }, { name: 'identifier', type: 'bytes32' }, { name: 'timestamp', type: 'uint256' }, { name: 'ancillaryData', type: 'bytes' }], name: 'settle', outputs: [{ name: 'payout', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
+] as const;
+
+export const TIMER_ABI = [
+  { inputs: [], name: 'getCurrentTime', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'time', type: 'uint256' }], name: 'setCurrentTime', outputs: [], stateMutability: 'nonpayable', type: 'function' },
 ] as const;
 
 export const ERC20_ABI = [

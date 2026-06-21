@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_OO_V2_ADDRESS?: string;
   readonly VITE_FINDER_ADDRESS?: string;
   readonly VITE_TIMER_ADDRESS?: string;
+  readonly VITE_CIRCLE_CLIENT_KEY?: string;
+  readonly VITE_CIRCLE_CLIENT_URL?: string;
 }
 
 interface ImportMeta {

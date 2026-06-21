@@ -1,47 +1,101 @@
 import { useState } from 'react';
-import { type Address, parseEther } from 'viem';
-import { useAccount } from 'wagmi';
+import { type Address, parseEther, maxUint256 } from 'viem';
+import { Gavel, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/primitives/tabs';
 import { Button } from '@/shared/ui/primitives/button';
 import { Input } from '@/shared/ui/primitives/input';
 import { toast } from '@/shared/ui/primitives/sonner';
-import { AMM_ABI, ERC20_ABI } from '@/shared/lib/contracts/abis';
-import { ARCT_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { ARCT_ADDRESS, OO_V2_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { ERC20_ABI } from '@/shared/lib/contracts/abis';
+import { OracleState, oracleStateLabel, formatCollateral } from '@/shared/lib/contracts/types';
+import { useWallet } from '@/features/wallet/WalletContext';
 import { useContractWrite } from '@/features/wallet/useContractWrite';
+import { useAmmTrade, useTradePreview, useTradeAllowances } from './hooks/useTrade';
+import { useOracleState, useOracleActions, type OracleArgs } from './hooks/useOracle';
 
-type Outcome = 'yes' | 'no';
+interface TradingPanelProps extends OracleArgs {
+  amm?: Address;
+  longToken?: Address;
+  shortToken?: Address;
+  resolved?: boolean;
+  arctAllowanceToOo?: bigint;
+}
 
-export function TradingPanel({ amm, resolved }: { amm: Address; resolved?: boolean }) {
-  const { isConnected } = useAccount();
-  const [side, setSide] = useState<'buy' | 'sell'>('buy');
-  const [outcome, setOutcome] = useState<Outcome>('yes');
+export function TradingPanel(props: TradingPanelProps) {
+  const { amm, market, longToken, shortToken, resolved } = props;
+  return (
+    <div className="corner-markers border border-border bg-card p-4">
+      <div className="data-label mb-3 text-gold">// TRADE</div>
+      <Tabs defaultValue="buy">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="buy">Buy</TabsTrigger>
+          <TabsTrigger value="sell">Sell</TabsTrigger>
+          <TabsTrigger value="resolve">Resolve</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="buy">
+          <BuySell side="buy" amm={amm} longToken={longToken} shortToken={shortToken} resolved={resolved} />
+        </TabsContent>
+        <TabsContent value="sell">
+          <BuySell side="sell" amm={amm} longToken={longToken} shortToken={shortToken} resolved={resolved} />
+        </TabsContent>
+        <TabsContent value="resolve">
+          <ResolveTab
+            market={market}
+            priceIdentifier={props.priceIdentifier}
+            requestTimestamp={props.requestTimestamp}
+            ancillaryDataHex={props.ancillaryDataHex}
+            arctAllowanceToOo={props.arctAllowanceToOo}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// --- Buy / Sell --------------------------------------------------------------
+function BuySell({
+  side,
+  amm,
+  longToken,
+  shortToken,
+  resolved,
+}: {
+  side: 'buy' | 'sell';
+  amm?: Address;
+  longToken?: Address;
+  shortToken?: Address;
+  resolved?: boolean;
+}) {
+  const { isConnected } = useWallet();
+  const [outcome, setOutcome] = useState<'yes' | 'no'>('yes');
   const [amount, setAmount] = useState('');
-  const { write, isPending, isConfirming } = useContractWrite();
+  const { approve, buy, sell, isPending, isConfirming } = useAmmTrade(amm);
+  const { out } = useTradePreview(amm, side, outcome, amount);
+  const { arctAllowance, longAllowance, shortAllowance } = useTradeAllowances(amm, longToken, shortToken);
 
   const busy = isPending || isConfirming;
   const disabled = !isConnected || resolved || busy || !amount || Number(amount) <= 0;
 
+  const sellToken = outcome === 'yes' ? longToken : shortToken;
+  const sellAllowance = outcome === 'yes' ? longAllowance : shortAllowance;
+
   async function submit() {
-    const value = parseEther(amount);
     try {
       if (side === 'buy') {
-        toast.message('Approving ARCT…');
-        await write({ address: ARCT_ADDRESS, abi: ERC20_ABI, functionName: 'approve', args: [amm, value] });
+        if ((arctAllowance ?? 0n) < parseEther(amount)) {
+          toast.message('Approving ARCT…');
+          await approve(ARCT_ADDRESS, maxUint256);
+        }
         toast.message(`Buying ${outcome.toUpperCase()}…`);
-        await write({
-          address: amm,
-          abi: AMM_ABI,
-          functionName: outcome === 'yes' ? 'buyYes' : 'buyNo',
-          args: [value],
-        });
+        await buy(outcome, amount);
       } else {
+        if (sellToken && (sellAllowance ?? 0n) < parseEther(amount)) {
+          toast.message('Approving tokens…');
+          await approve(sellToken, maxUint256);
+        }
         toast.message(`Selling ${outcome.toUpperCase()}…`);
-        await write({
-          address: amm,
-          abi: AMM_ABI,
-          functionName: outcome === 'yes' ? 'sellYes' : 'sellNo',
-          args: [value],
-        });
+        await sell(outcome, amount);
       }
       toast.success('Transaction submitted');
       setAmount('');
@@ -51,49 +105,136 @@ export function TradingPanel({ amm, resolved }: { amm: Address; resolved?: boole
   }
 
   return (
-    <div className="corner-markers border border-border bg-card p-4">
-      <div className="data-label mb-3 text-gold">// TRADE</div>
-      <Tabs value={side} onValueChange={(v) => setSide(v as 'buy' | 'sell')}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="buy">Buy</TabsTrigger>
-          <TabsTrigger value="sell">Sell</TabsTrigger>
-        </TabsList>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant={outcome === 'yes' ? 'success' : 'outline'} onClick={() => setOutcome('yes')}>
+          YES
+        </Button>
+        <Button variant={outcome === 'no' ? 'destructive' : 'outline'} onClick={() => setOutcome('no')}>
+          NO
+        </Button>
+      </div>
+      <Input
+        type="number"
+        placeholder={side === 'buy' ? 'ARCT amount' : `${outcome.toUpperCase()} tokens`}
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+      />
+      {out !== undefined && Number(amount) > 0 && (
+        <div className="flex justify-between border border-border bg-surface px-3 py-2">
+          <span className="data-label">{side === 'buy' ? 'EST. TOKENS OUT' : 'EST. ARCT OUT'}</span>
+          <span className="data-value text-gold">{formatCollateral(out)}</span>
+        </div>
+      )}
+      <Button className="w-full" disabled={disabled} onClick={submit}>
+        {busy ? 'Processing…' : resolved ? 'Market resolved' : `${side === 'buy' ? 'Buy' : 'Sell'} ${outcome.toUpperCase()}`}
+      </Button>
+      {!isConnected && <p className="text-center text-data-xs text-muted-foreground">Connect a wallet to trade.</p>}
+    </div>
+  );
+}
 
-        <TabsContent value={side} className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+// --- Resolve (UMA Optimistic Oracle) ----------------------------------------
+function ResolveTab({
+  market,
+  priceIdentifier,
+  requestTimestamp,
+  ancillaryDataHex,
+  arctAllowanceToOo,
+}: OracleArgs & { arctAllowanceToOo?: bigint }) {
+  const { isConnected } = useWallet();
+  const args: OracleArgs = { market, priceIdentifier, requestTimestamp, ancillaryDataHex };
+  const { oracleState, proposer, proposedPrice, bond } = useOracleState(args);
+  const { propose, dispute, settleOracle, action, isPending, isConfirming } = useOracleActions(args);
+  const approveBond = useContractWrite();
+
+  const busy = isPending || isConfirming || approveBond.isPending || approveBond.isConfirming;
+  const needsBondApproval = bond !== undefined && (arctAllowanceToOo ?? 0n) < bond;
+
+  const canPropose = oracleState === OracleState.Requested || oracleState === OracleState.Invalid;
+  const canDispute = oracleState === OracleState.Proposed;
+  const canSettle = oracleState === OracleState.Expired || oracleState === OracleState.Resolved;
+
+  const priceLabel =
+    proposedPrice === undefined
+      ? '—'
+      : proposedPrice >= parseEther('1')
+        ? 'YES'
+        : proposedPrice === parseEther('0.5')
+          ? 'UNDET'
+          : 'NO';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between border border-border bg-surface px-3 py-2">
+        <span className="data-label">ORACLE STATE</span>
+        <span className="data-value text-gold">{oracleStateLabel(oracleState, { priceRequested: true })}</span>
+      </div>
+      {oracleState === OracleState.Proposed && (
+        <div className="flex items-center justify-between border border-border bg-surface px-3 py-2">
+          <span className="data-label">PROPOSED</span>
+          <span className="data-value">{priceLabel}</span>
+        </div>
+      )}
+
+      {canPropose && (
+        <>
+          <div className="data-label">
+            PROPOSE OUTCOME {bond !== undefined && `· BOND ${formatCollateral(bond)} ARCT`}
+          </div>
+          {needsBondApproval && (
             <Button
-              variant={outcome === 'yes' ? 'success' : 'outline'}
-              onClick={() => setOutcome('yes')}
+              variant="outline"
+              className="w-full"
+              disabled={!isConnected || busy}
+              onClick={() =>
+                approveBond.write({ address: ARCT_ADDRESS, abi: ERC20_ABI, functionName: 'approve', args: [OO_V2_ADDRESS, maxUint256] })
+              }
             >
+              {approveBond.isPending || approveBond.isConfirming ? 'Approving…' : 'Approve bond'}
+            </Button>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            <Button variant="success" disabled={!isConnected || busy || needsBondApproval} onClick={() => propose(parseEther('1'))}>
               YES
             </Button>
-            <Button
-              variant={outcome === 'no' ? 'destructive' : 'outline'}
-              onClick={() => setOutcome('no')}
-            >
+            <Button variant="destructive" disabled={!isConnected || busy || needsBondApproval} onClick={() => propose(0n)}>
               NO
             </Button>
+            <Button variant="outline" disabled={!isConnected || busy || needsBondApproval} onClick={() => propose(parseEther('0.5'))}>
+              UNDET
+            </Button>
           </div>
+        </>
+      )}
 
-          <Input
-            type="number"
-            placeholder={side === 'buy' ? 'ARCT amount' : `${outcome.toUpperCase()} tokens`}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
+      {canDispute && (
+        <div className="space-y-2">
+          <p className="text-data-xs text-muted-foreground">
+            Proposed by <span className="font-mono">{proposer?.slice(0, 8)}…</span>. Dispute escalates to the DVM, or settle
+            once liveness (60s) expires.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="destructive" disabled={!isConnected || busy} onClick={dispute}>
+              {busy && action === 'dispute' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gavel className="h-4 w-4" />} Dispute
+            </Button>
+            <Button disabled={!isConnected || busy} onClick={settleOracle}>
+              {busy && action === 'settle' ? 'Settling…' : 'Settle'}
+            </Button>
+          </div>
+        </div>
+      )}
 
-          <Button className="w-full" disabled={disabled} onClick={submit}>
-            {busy
-              ? 'Processing…'
-              : resolved
-                ? 'Market resolved'
-                : `${side === 'buy' ? 'Buy' : 'Sell'} ${outcome.toUpperCase()}`}
-          </Button>
-          {!isConnected && (
-            <p className="text-center text-data-xs text-muted-foreground">Connect a wallet to trade.</p>
-          )}
-        </TabsContent>
-      </Tabs>
+      {canSettle && (
+        <Button className="w-full" disabled={!isConnected || busy} onClick={settleOracle}>
+          {busy ? 'Settling…' : 'Settle oracle'}
+        </Button>
+      )}
+
+      {oracleState === OracleState.Settled && (
+        <p className="text-center text-data-sm text-success">Market resolved — redeem your positions below.</p>
+      )}
+      {!isConnected && <p className="text-center text-data-xs text-muted-foreground">Connect a wallet to resolve.</p>}
     </div>
   );
 }
