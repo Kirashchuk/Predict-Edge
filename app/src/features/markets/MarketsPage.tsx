@@ -40,13 +40,13 @@ export default function MarketsPage() {
         <CreateMarketDialog />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
         {(['All', ...CATEGORIES] as const).map((c) => (
           <button
             key={c}
             onClick={() => setActive(c)}
             className={
-              'btn-brutal ' +
+              'btn-brutal shrink-0 ' +
               (active === c
                 ? 'border-gold bg-gold/15 text-gold'
                 : 'border-border text-muted-foreground hover:border-border-strong hover:text-foreground')
