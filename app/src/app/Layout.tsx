@@ -1,6 +1,9 @@
 import { type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { WalletConnect } from '@/features/wallet/WalletConnect';
+
+const navCls = ({ isActive }: { isActive: boolean }) =>
+  `data-label transition-colors ${isActive ? 'text-gold' : 'text-muted-foreground hover:text-foreground'}`;
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -28,6 +31,16 @@ export function Layout({ children }: { children: ReactNode }) {
               </span>
             </span>
           </Link>
+
+          <nav className="flex items-center gap-3 sm:gap-5">
+            <NavLink to="/" end className={navCls}>
+              MARKETS
+            </NavLink>
+            <NavLink to="/portfolio" className={navCls}>
+              PORTFOLIO
+            </NavLink>
+          </nav>
+
           <WalletConnect />
         </div>
       </header>

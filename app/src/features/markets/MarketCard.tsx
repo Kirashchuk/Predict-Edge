@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { type Address, formatUnits } from 'viem';
 import { useAmmState } from './hooks/useAmmState';
+import { Sparkline } from './Sparkline';
 import type { MarketEntry } from './catalog';
 
 function ProbabilityBar({ yes }: { yes: number }) {
@@ -20,11 +21,14 @@ function ProbabilityBar({ yes }: { yes: number }) {
   );
 }
 
-function LiveCardBody({ market, amm }: { market: Address; amm: Address }) {
+function LiveCardBody({ market, amm, seed }: { market: Address; amm: Address; seed: string }) {
   const { yesPrice, resolved } = useAmmState(market, amm);
   const yes = yesPrice ? Number(formatUnits(yesPrice, 18)) : 0.5;
   return (
     <>
+      <div className="mb-3">
+        <Sparkline yes={yes} seed={seed} />
+      </div>
       <ProbabilityBar yes={yes} />
       <div className="mt-3 flex items-center justify-between">
         <span className={`data-label ${resolved ? 'text-warning' : 'text-success'}`}>
@@ -47,9 +51,14 @@ export function MarketCard({ market }: { market: MarketEntry }) {
         {market.title}
       </h3>
       {market.live && market.address && market.ammAddress ? (
-        <LiveCardBody market={market.address as Address} amm={market.ammAddress as Address} />
+        <LiveCardBody market={market.address as Address} amm={market.ammAddress as Address} seed={market.address} />
       ) : (
-        <ProbabilityBar yes={market.staticYes ?? 0.5} />
+        <>
+          <div className="mb-3">
+            <Sparkline yes={market.staticYes ?? 0.5} seed={market.id} />
+          </div>
+          <ProbabilityBar yes={market.staticYes ?? 0.5} />
+        </>
       )}
     </div>
   );

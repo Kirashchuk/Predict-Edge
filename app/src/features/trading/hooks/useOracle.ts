@@ -83,14 +83,19 @@ export function useOracleActions({ market, priceIdentifier, requestTimestamp, an
   const ready = !!market && !!priceIdentifier && requestTimestamp !== undefined && !!ancillaryDataHex;
 
   const runWithTimer = useCallback(
-    async (kind: 'propose' | 'settle', fnName: 'proposePrice' | 'settle', fnArgs: readonly unknown[]) => {
+    async (
+      kind: 'propose' | 'settle',
+      fnName: 'proposePrice' | 'settle',
+      fnArgs: readonly unknown[],
+      timerTime: bigint,
+    ) => {
       setAction(kind);
       setIsPending(true);
       setIsConfirming(false);
       setIsSuccess(false);
       setError(null);
       try {
-        const nowTime = BigInt(Math.floor(Date.now() / 1000));
+        const nowTime = timerTime;
         if (walletType === 'circle' && bundlerClient) {
           const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
           if (hasTimer) {
@@ -144,15 +149,24 @@ export function useOracleActions({ market, priceIdentifier, requestTimestamp, an
   const propose = useCallback(
     (price: bigint) => {
       if (!ready) return;
-      void runWithTimer('propose', 'proposePrice', [market!, priceIdentifier!, requestTimestamp!, ancillaryDataHex!, price]);
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      void runWithTimer('propose', 'proposePrice', [market!, priceIdentifier!, requestTimestamp!, ancillaryDataHex!, price], now);
     },
     [ready, market, priceIdentifier, requestTimestamp, ancillaryDataHex, runWithTimer],
   );
 
-  const settleOracle = useCallback(() => {
-    if (!ready) return;
-    void runWithTimer('settle', 'settle', [market!, priceIdentifier!, requestTimestamp!, ancillaryDataHex!]);
-  }, [ready, market, priceIdentifier, requestTimestamp, ancillaryDataHex, runWithTimer]);
+  // Settle requires the proposal's liveness to have elapsed. With a Testable
+  // Timer we jump it just past `expirationTime` so settle is always possible
+  // on testnet without waiting out the real liveness window.
+  const settleOracle = useCallback(
+    (expirationTime?: bigint) => {
+      if (!ready) return;
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      const target = expirationTime !== undefined && expirationTime > 0n ? expirationTime + 30n : now + 3600n;
+      void runWithTimer('settle', 'settle', [market!, priceIdentifier!, requestTimestamp!, ancillaryDataHex!], target);
+    },
+    [ready, market, priceIdentifier, requestTimestamp, ancillaryDataHex, runWithTimer],
+  );
 
   // dispute is a plain single call (no timer needed).
   const disputeWrite = useContractWrite();

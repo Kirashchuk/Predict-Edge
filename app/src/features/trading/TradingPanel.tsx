@@ -217,7 +217,7 @@ function ResolveTab({
 }: OracleArgs & { arctAllowanceToOo?: bigint }) {
   const { isConnected } = useWallet();
   const args: OracleArgs = { market, priceIdentifier, requestTimestamp, ancillaryDataHex };
-  const { oracleState, proposer, proposedPrice, bond } = useOracleState(args);
+  const { oracleState, proposer, proposedPrice, bond, expirationTime } = useOracleState(args);
   const { propose, dispute, settleOracle, action, isPending, isConfirming } = useOracleActions(args);
   const approveBond = useContractWrite();
 
@@ -291,7 +291,7 @@ function ResolveTab({
             <Button variant="destructive" disabled={!isConnected || busy} onClick={dispute}>
               {busy && action === 'dispute' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gavel className="h-4 w-4" />} Dispute
             </Button>
-            <Button disabled={!isConnected || busy} onClick={settleOracle}>
+            <Button disabled={!isConnected || busy} onClick={() => settleOracle(expirationTime)}>
               {busy && action === 'settle' ? 'Settling…' : 'Settle'}
             </Button>
           </div>
@@ -299,7 +299,7 @@ function ResolveTab({
       )}
 
       {canSettle && (
-        <Button className="w-full" disabled={!isConnected || busy} onClick={settleOracle}>
+        <Button className="w-full" disabled={!isConnected || busy} onClick={() => settleOracle(expirationTime)}>
           {busy ? 'Settling…' : 'Settle oracle'}
         </Button>
       )}

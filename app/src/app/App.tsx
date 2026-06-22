@@ -14,6 +14,7 @@ import MarketsPage from '@/features/markets/MarketsPage';
 import NotFound from '@/app/routes/NotFound';
 
 const MarketDetail = lazy(() => import('@/features/markets/MarketDetail'));
+const PortfolioPage = lazy(() => import('@/features/portfolio/PortfolioPage'));
 
 const queryClient = createQueryClient();
 
@@ -48,6 +49,14 @@ const App = () => (
                   element={
                     <Page>
                       <MarketDetail />
+                    </Page>
+                  }
+                />
+                <Route
+                  path="/portfolio"
+                  element={
+                    <Page>
+                      <PortfolioPage />
                     </Page>
                   }
                 />
