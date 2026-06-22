@@ -11,6 +11,7 @@ import { formatCollateral } from '@/shared/lib/contracts/types';
 import { fmtPricePct, fmtToken } from '@/shared/lib/format';
 import { useWallet } from '@/features/wallet/WalletContext';
 import { TradingPanel } from '@/features/trading/TradingPanel';
+import { OrderBook } from '@/features/trading/OrderBook';
 import { useAmmState } from './hooks/useAmmState';
 import { useMarketState, useTokenBalances } from './hooks/useMarketData';
 import { useSettlePosition } from './hooks/useMarketActions';
@@ -123,7 +124,7 @@ export default function MarketDetail() {
           </p>
         </div>
 
-        <div>
+        <div className="space-y-4">
           <TradingPanel
             market={market}
             amm={amm}
@@ -134,6 +135,17 @@ export default function MarketDetail() {
             ancillaryDataHex={ms.ancillaryDataHex}
             resolved={state.resolved}
             arctAllowanceToOo={arctAllowanceToOo as bigint | undefined}
+            yesPrice={yes}
+          />
+          <OrderBook
+            market={market}
+            amm={amm}
+            longToken={ms.longTokenAddress}
+            shortToken={ms.shortTokenAddress}
+            reserveYes={Number(formatUnits(state.reserveYes ?? 0n, 6))}
+            reserveNo={Number(formatUnits(state.reserveNo ?? 0n, 6))}
+            feeBps={Number(state.feeBps ?? 200n)}
+            yesPrice={yes}
           />
         </div>
       </div>

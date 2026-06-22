@@ -6,6 +6,7 @@ import { HTTPException } from 'hono/http-exception';
 import { env } from './core/config';
 import { logger } from './core/logger';
 import { marketsRoutes } from './modules/markets/markets.routes';
+import { ordersRoutes } from './modules/orders/orders.routes';
 
 export function createApp(): OpenAPIHono {
   const app = new OpenAPIHono();
@@ -30,6 +31,7 @@ export function createApp(): OpenAPIHono {
 
   // Mount versioned API (mirrors nado's /v1 prefix).
   app.route('/v1', marketsRoutes);
+  app.route('/v1', ordersRoutes);
 
   app.doc('/openapi.json', {
     openapi: '3.1.0',

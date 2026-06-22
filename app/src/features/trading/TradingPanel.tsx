@@ -12,6 +12,7 @@ import { useWallet } from '@/features/wallet/WalletContext';
 import { useContractWrite } from '@/features/wallet/useContractWrite';
 import { useAmmTrade, useTradePreview, useTradeAllowances } from './hooks/useTrade';
 import { useOracleState, useOracleActions, type OracleArgs } from './hooks/useOracle';
+import { usePlaceOrder } from './hooks/useOrders';
 
 interface TradingPanelProps extends OracleArgs {
   amm?: Address;
@@ -19,6 +20,7 @@ interface TradingPanelProps extends OracleArgs {
   shortToken?: Address;
   resolved?: boolean;
   arctAllowanceToOo?: bigint;
+  yesPrice?: number; // 0..1, for the limit form default
 }
 
 export function TradingPanel(props: TradingPanelProps) {
@@ -27,9 +29,10 @@ export function TradingPanel(props: TradingPanelProps) {
     <div className="corner-markers border border-border bg-card p-4">
       <div className="data-label mb-3 text-gold">// TRADE</div>
       <Tabs defaultValue="buy">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="buy">Buy</TabsTrigger>
           <TabsTrigger value="sell">Sell</TabsTrigger>
+          <TabsTrigger value="limit">Limit</TabsTrigger>
           <TabsTrigger value="resolve">Resolve</TabsTrigger>
         </TabsList>
 
@@ -38,6 +41,9 @@ export function TradingPanel(props: TradingPanelProps) {
         </TabsContent>
         <TabsContent value="sell">
           <BuySell side="sell" amm={amm} longToken={longToken} shortToken={shortToken} resolved={resolved} />
+        </TabsContent>
+        <TabsContent value="limit">
+          <LimitForm market={market} resolved={resolved} yesPrice={props.yesPrice ?? 0.5} />
         </TabsContent>
         <TabsContent value="resolve">
           <ResolveTab
@@ -131,6 +137,72 @@ function BuySell({
         {busy ? 'Processing…' : resolved ? 'Market resolved' : `${side === 'buy' ? 'Buy' : 'Sell'} ${outcome.toUpperCase()}`}
       </Button>
       {!isConnected && <p className="text-center text-data-xs text-muted-foreground">Connect a wallet to trade.</p>}
+    </div>
+  );
+}
+
+// --- Limit order (off-chain, executes against the AMM when crossed) ---------
+function LimitForm({ market, resolved, yesPrice }: { market?: Address; resolved?: boolean; yesPrice: number }) {
+  const { address, isConnected } = useWallet();
+  const [outcome, setOutcome] = useState<'yes' | 'no'>('yes');
+  const [side, setSide] = useState<'buy' | 'sell'>('buy');
+  const [price, setPrice] = useState('');
+  const [size, setSize] = useState('');
+  const place = usePlaceOrder(market);
+
+  const outcomePrice = outcome === 'yes' ? yesPrice : 1 - yesPrice;
+  const disabled = !isConnected || resolved || place.isPending || !price || !size || Number(size) <= 0;
+
+  async function submit() {
+    if (!address || !market) return;
+    const limit = Number(price) / 100;
+    if (limit <= 0 || limit >= 1) {
+      toast.error('Limit price must be between 1% and 99%');
+      return;
+    }
+    try {
+      await place.mutateAsync({ market, owner: address, side, outcome, limitPrice: limit, size: Number(size) });
+      toast.success(`Limit ${side} ${outcome.toUpperCase()} @ ${price}% placed`);
+      setPrice('');
+      setSize('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to place order');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant={side === 'buy' ? 'success' : 'outline'} onClick={() => setSide('buy')}>
+          Buy
+        </Button>
+        <Button variant={side === 'sell' ? 'destructive' : 'outline'} onClick={() => setSide('sell')}>
+          Sell
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant={outcome === 'yes' ? 'success' : 'outline'} size="sm" onClick={() => setOutcome('yes')}>
+          YES
+        </Button>
+        <Button variant={outcome === 'no' ? 'destructive' : 'outline'} size="sm" onClick={() => setOutcome('no')}>
+          NO
+        </Button>
+      </div>
+      <div>
+        <div className="data-label mb-1">LIMIT PRICE % (now {(outcomePrice * 100).toFixed(1)}%)</div>
+        <Input type="number" placeholder="e.g. 40" value={price} onChange={(e) => setPrice(e.target.value)} />
+      </div>
+      <div>
+        <div className="data-label mb-1">SIZE ({side === 'buy' ? 'USDC' : `${outcome.toUpperCase()} tokens`})</div>
+        <Input type="number" placeholder="0.0" value={size} onChange={(e) => setSize(e.target.value)} />
+      </div>
+      <Button className="w-full" disabled={disabled} onClick={submit}>
+        {place.isPending ? 'Placing…' : 'Place limit order'}
+      </Button>
+      <p className="text-center text-[0.6rem] text-muted-foreground/70">
+        Off-chain order · auto-flagged fillable when AMM price crosses · you sign the fill vs the AMM
+      </p>
+      {!isConnected && <p className="text-center text-data-xs text-muted-foreground">Connect a wallet to place orders.</p>}
     </div>
   );
 }

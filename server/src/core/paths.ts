@@ -5,6 +5,7 @@ export const REPO_ROOT = path.resolve(import.meta.dir, '../../..');
 
 export const DATA_DIR = path.join(REPO_ROOT, 'data');
 export const MARKETS_FILE = path.join(DATA_DIR, 'markets.json');
+export const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 export const ARTIFACTS_DIR = path.join(REPO_ROOT, 'artifacts', 'contracts');
 
 export function artifactPath(contractPath: string): string {
