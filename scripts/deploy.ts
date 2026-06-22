@@ -43,28 +43,33 @@ const artifacts = {
 
 // --- Configuration --------------------------------------------------
 
+// Arc Testnet native USDC, exposed as an ERC-20 at a fixed system address
+// (decimals = 6). This replaces the mintable ARCT TestnetERC20 as collateral.
+const USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
+const USDC_DECIMALS = 6;
+const usdc = (n: string) => ethers.parseUnits(n, USDC_DECIMALS);
+
+const ERC20_MIN_ABI = [
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function balanceOf(address account) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+];
+
 const CONFIG = {
   // Market parameters
   pairName: "BTC100K",
   question: "Will Bitcoin exceed $100,000 before June 1, 2026?",
 
-  // Collateral token (TestnetERC20)
-  tokenName: "Arc Test Token",
-  tokenSymbol: "ARCT",
-  tokenDecimals: 18,
-
   // Optimistic Oracle parameters
   defaultLiveness: 7200,        // 2 hours - default OO liveness
   marketLiveness: 60,           // 1 minute - market-specific liveness
-  proposerReward: ethers.parseEther("10"),    // 10 ARCT
-  proposerBond: ethers.parseEther("100"),     // 100 ARCT
-
-  // AMM parameters
-  ammFeeBps: 200,                             // 2% fee
-  seedLiquidity: ethers.parseEther("1000"),   // 1000 ARCT
-
-  // Deployer allocation
-  deployerMint: ethers.parseEther("100000"),  // 100,000 ARCT for deployer
+  // Amounts are small because the deployer pays gas AND collateral from the
+  // same real USDC balance (faucet-funded). USDC has 6 decimals.
+  proposerReward: usdc("0.1"),   // 0.1 USDC reward to the OO proposer
+  proposerBond: usdc("1"),       // 1 USDC proposer bond
+  ammFeeBps: 200,                // 2% fee
+  seedLiquidity: usdc("5"),      // 5 USDC seeded into the AMM
 };
 
 // --- Helpers --------------------------------------------------------
@@ -193,11 +198,10 @@ async function main() {
   );
   const storeAddr = await store.getAddress();
 
-  const testnetERC20 = await deployFromArtifact(
-    "TestnetERC20 (ARCT)", artifacts.TestnetERC20,
-    [CONFIG.tokenName, CONFIG.tokenSymbol, CONFIG.tokenDecimals], deployer
-  );
-  const arctAddr = await testnetERC20.getAddress();
+  // Collateral is the native USDC ERC-20 (system contract, 6 decimals) — no
+  // token is deployed/minted. The deployer funds collateral from its real USDC.
+  const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_MIN_ABI, deployer);
+  const arctAddr = USDC_ADDRESS;
 
   const mockOracle = await deployFromArtifact(
     "MockOracleAncillary", artifacts.MockOracleAncillary,
@@ -229,16 +233,22 @@ async function main() {
   await (await identifierWhitelist.getFunction("addSupportedIdentifier")(b32("YES_OR_NO_QUERY"))).wait();
   console.log("  Identifier whitelisted.");
 
-  console.log("  Whitelisting ARCT as collateral...");
-  await (await addressWhitelist.getFunction("addToWhitelist")(arctAddr)).wait();
+  console.log("  Whitelisting USDC as collateral...");
+  await (await addressWhitelist.getFunction("addToWhitelist")(USDC_ADDRESS)).wait();
   console.log("  Collateral whitelisted.");
 
-  // --- Phase 3: Mint ARCT for deployer ----------------------------
+  // --- Phase 3: Check deployer USDC balance -----------------------
 
-  console.log("\nPhase 3: Minting ARCT for deployer...\n");
+  console.log("\nPhase 3: Checking deployer USDC balance...\n");
 
-  await (await testnetERC20.getFunction("allocateTo")(baseSigner.address, CONFIG.deployerMint)).wait();
-  console.log(`  Minted ${ethers.formatEther(CONFIG.deployerMint)} ARCT to deployer.`);
+  const needed = CONFIG.proposerReward + CONFIG.seedLiquidity;
+  const usdcBal: bigint = await usdcContract.balanceOf!(baseSigner.address);
+  console.log(`  Deployer USDC: ${ethers.formatUnits(usdcBal, USDC_DECIMALS)} (need ~${ethers.formatUnits(needed, USDC_DECIMALS)} + gas)`);
+  if (usdcBal < needed) {
+    throw new Error(
+      `Insufficient USDC. Have ${ethers.formatUnits(usdcBal, USDC_DECIMALS)}, need ${ethers.formatUnits(needed, USDC_DECIMALS)} (+ gas). Top up from https://faucet.circle.com/`,
+    );
+  }
 
   // --- Phase 4: Deploy Prediction Market --------------------------
 
@@ -273,8 +283,8 @@ async function main() {
 
   console.log("\nPhase 5: Initializing market (requesting price from OO)...\n");
 
-  // Approve proposerReward to market
-  await (await testnetERC20.getFunction("approve")(marketAddr, CONFIG.proposerReward)).wait();
+  // Approve proposerReward (USDC) to market
+  await (await usdcContract.approve!(marketAddr, CONFIG.proposerReward)).wait();
   await (await market.initializeMarket()).wait();
   console.log("  Market initialized. OO price request active.");
 
@@ -288,10 +298,10 @@ async function main() {
   const ammAddr = await amm.getAddress();
   console.log(`  PredictionMarketAMM: ${ammAddr}`);
 
-  // Approve ARCT to AMM and seed liquidity
-  await (await testnetERC20.getFunction("approve")(ammAddr, CONFIG.seedLiquidity)).wait();
+  // Approve USDC to AMM and seed liquidity
+  await (await usdcContract.approve!(ammAddr, CONFIG.seedLiquidity)).wait();
   await (await amm.initialize(CONFIG.seedLiquidity)).wait();
-  console.log(`  AMM seeded with ${ethers.formatEther(CONFIG.seedLiquidity)} ARCT.`);
+  console.log(`  AMM seeded with ${ethers.formatUnits(CONFIG.seedLiquidity, USDC_DECIMALS)} USDC.`);
 
   // --- Phase 7: Write .env.local ----------------------------------
 
@@ -299,7 +309,7 @@ async function main() {
   writeEnvFile(envPath, {
     NEXT_PUBLIC_MARKET_ADDRESS: marketAddr,
     NEXT_PUBLIC_AMM_ADDRESS: ammAddr,
-    NEXT_PUBLIC_ARCT_ADDRESS: arctAddr,
+    NEXT_PUBLIC_USDC_ADDRESS: USDC_ADDRESS,
     NEXT_PUBLIC_OO_V2_ADDRESS: ooV2Addr,
     NEXT_PUBLIC_FINDER_ADDRESS: finderAddr,
     NEXT_PUBLIC_TIMER_ADDRESS: timerAddr,
@@ -319,7 +329,7 @@ async function main() {
   console.log(`  OptimisticOracleV2:   ${ooV2Addr}`);
   console.log("");
   console.log("Tokens:");
-  console.log(`  ARCT (collateral):    ${arctAddr}`);
+  console.log(`  USDC (collateral):    ${arctAddr}`);
   console.log(`  Long Token (PLT):     ${longTokenAddr}`);
   console.log(`  Short Token (PST):    ${shortTokenAddr}`);
   console.log("");

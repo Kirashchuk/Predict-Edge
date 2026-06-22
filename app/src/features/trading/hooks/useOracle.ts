@@ -1,12 +1,12 @@
-import { useReadContract, usePublicClient, useWriteContract } from 'wagmi';
+import { useReadContract, usePublicClient, useWriteContract, useAccount, useSwitchChain } from 'wagmi';
 import { useCallback, useState } from 'react';
 import { encodeFunctionData, type Address } from 'viem';
 import { OO_V2_ABI, TIMER_ABI } from '@/shared/lib/contracts/abis';
 import { OO_V2_ADDRESS, TIMER_ADDRESS } from '@/shared/lib/contracts/addresses';
 import { OracleState } from '@/shared/lib/contracts/types';
 import { useWallet } from '@/features/wallet/WalletContext';
-import { useContractWrite } from '@/features/wallet/useContractWrite';
-import { LIVE_STATE_REFETCH_INTERVAL, WAGMI_POLLING_INTERVAL } from '@/features/wallet/wagmi';
+import { useContractWrite, ensureArcChain } from '@/features/wallet/useContractWrite';
+import { LIVE_STATE_REFETCH_INTERVAL, WAGMI_POLLING_INTERVAL, arcTestnet } from '@/features/wallet/wagmi';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 
@@ -70,6 +70,8 @@ export function useOracleActions({ market, priceIdentifier, requestTimestamp, an
   const { walletType, bundlerClient } = useWallet();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
+  const { chainId: connectedChainId } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
   const hasTimer = TIMER_ADDRESS !== ZERO;
 
   const [isPending, setIsPending] = useState(false);
@@ -107,12 +109,14 @@ export function useOracleActions({ market, priceIdentifier, requestTimestamp, an
           await bundlerClient.waitForUserOperationReceipt({ hash: opHash });
         } else {
           if (!publicClient) throw new Error('No public client available');
+          await ensureArcChain(connectedChainId, switchChainAsync);
           if (hasTimer) {
             await writeContractAsync({
               address: TIMER_ADDRESS,
               abi: TIMER_ABI,
               functionName: 'setCurrentTime',
               args: [nowTime],
+              chainId: arcTestnet.id,
             } as never);
           }
           setIsConfirming(true);
@@ -122,6 +126,7 @@ export function useOracleActions({ market, priceIdentifier, requestTimestamp, an
             abi: OO_V2_ABI,
             functionName: fnName,
             args: fnArgs,
+            chainId: arcTestnet.id,
           } as never);
           await publicClient.waitForTransactionReceipt({ hash: txHash, pollingInterval: WAGMI_POLLING_INTERVAL });
         }
@@ -133,7 +138,7 @@ export function useOracleActions({ market, priceIdentifier, requestTimestamp, an
         setError(err instanceof Error ? err : new Error(`${kind} failed`));
       }
     },
-    [walletType, bundlerClient, publicClient, writeContractAsync, hasTimer],
+    [walletType, bundlerClient, publicClient, writeContractAsync, hasTimer, connectedChainId, switchChainAsync],
   );
 
   const propose = useCallback(

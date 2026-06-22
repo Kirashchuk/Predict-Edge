@@ -1,44 +1,51 @@
 # Задеплоєні контракти — Arc Testnet
 
 **Мережа:** Arc Testnet (chainId `5042002`) · **Explorer:** [testnet.arcscan.app](https://testnet.arcscan.app)
-**Дата деплою:** 2026-06-21 · **Деплоєр:** `0x72CA27CC843373671DaA8F4876C36aa84ee74A3E`
-**Газу витрачено:** ~0.39 USDC
+**Деплоєр:** `0x72CA27CC843373671DaA8F4876C36aa84ee74A3E`
+**Колатераль:** **USDC** (нативний ERC-20, 6 decimals) — `0x3600000000000000000000000000000000000000`
 
-> Це публічні адреси (безпечно зберігати в git). Приватний ключ — лише в `.env.local` (gitignored).
+> Це публічні адреси (безпечно в git). Приватний ключ — лише в `.env.local`.
 
-## Ринок
+## Ринок (USDC-колатераль)
 
 | Контракт | Адреса |
 |---|---|
-| EventBasedPredictionMarket (BTC100K) | [`0xd5d9d07a2675D282ba86Eea84C189C3De9878D3e`](https://testnet.arcscan.app/address/0xd5d9d07a2675D282ba86Eea84C189C3De9878D3e) |
-| PredictionMarketAMM | [`0xc142618eE210987510f1aBD8E7e60aB2D7410F20`](https://testnet.arcscan.app/address/0xc142618eE210987510f1aBD8E7e60aB2D7410F20) |
+| EventBasedPredictionMarket (BTC100K) | [`0x45f03Ee08C61A1319Ee672E7312127e37CC894af`](https://testnet.arcscan.app/address/0x45f03Ee08C61A1319Ee672E7312127e37CC894af) |
+| PredictionMarketAMM | [`0xA4E18fFf8E551A81a54DD1d9F45c7Bb7e396d690`](https://testnet.arcscan.app/address/0xA4E18fFf8E551A81a54DD1d9F45c7Bb7e396d690) |
 
 ## Токени
 
 | Токен | Адреса |
 |---|---|
-| ARCT (колатераль, TestnetERC20) | [`0xC0CE6e992A98874079A425f83Dc6BB76f87bfE71`](https://testnet.arcscan.app/address/0xC0CE6e992A98874079A425f83Dc6BB76f87bfE71) |
-| Long Token (PLT / YES) | [`0x74De6c64B783C42F454C3D8b9CddD467765c2887`](https://testnet.arcscan.app/address/0x74De6c64B783C42F454C3D8b9CddD467765c2887) |
-| Short Token (PST / NO) | [`0x128f01C3f61a9317cF00ba07040da9e3AC0A58Fe`](https://testnet.arcscan.app/address/0x128f01C3f61a9317cF00ba07040da9e3AC0A58Fe) |
+| **USDC** (колатераль, ERC-20, 6 dec) | [`0x3600000000000000000000000000000000000000`](https://testnet.arcscan.app/address/0x3600000000000000000000000000000000000000) |
+| Long Token (PLT / YES) | `0xd33813B05D9d718BD7A0E07F7C9Fb68c12B4Ed07` |
+| Short Token (PST / NO) | `0x9b1EB696Ed283e143C2f77DDad93951fF06220cB` |
 
 ## UMA-інфраструктура
 
 | Контракт | Адреса |
 |---|---|
-| Timer | `0x30251D5B27edA16C5f4991907bBF56dBF4806558` |
-| Finder | `0x301063cb89554446D2cBf84159aFa662d88E1e85` |
-| IdentifierWhitelist | `0x99dD5748DAec241ED7A4c79FFc8103308Ef1BAfE` |
-| AddressWhitelist | `0x07cC3D6d61A9EeE7F7E8Aa77F1bc7da636f249c8` |
-| Store | `0xE1B515811e4B10dA013fc0D0D3FD06CC9439685E` |
-| MockOracleAncillary (DVM-замінник) | `0xDF67a2a5679E4993B4CAc7AE0E184De34acbc130` |
-| OptimisticOracleV2 | [`0x237d4Cff755708dBE57B24dB59634a68EB964E01`](https://testnet.arcscan.app/address/0x237d4Cff755708dBE57B24dB59634a68EB964E01) |
+| Timer | `0x9b29D73ef5889aa1C1DF98212EFBF41BCB513E5b` |
+| Finder | `0xFD3608a755D33cCFeb85B71840615f74eeA6CbF5` |
+| IdentifierWhitelist | `0x6eFcf1e735913bB4DE1f558EF39A69c71d18919d` |
+| AddressWhitelist | `0xE9264DEbA6F9530d5dBe3D275C5306727AC81832` |
+| Store | `0x8B84F612eb00E2aB69C71bBaF78366bF6a22DE83` |
+| MockOracleAncillary | `0xB129B9a47F695B003C1202A15ddCc758831C4289` |
+| OptimisticOracleV2 | [`0xFABb7DcaAdD1275E183A33b19eb6b96E96F83EC7`](https://testnet.arcscan.app/address/0xFABb7DcaAdD1275E183A33b19eb6b96E96F83EC7) |
 
 ## Перевірений стан (post-deploy)
 
-- Market `priceRequested = true`, `receivedSettlementPrice = false` (до резолюції) ✅
-- AMM `initialized = true`, резерви `YES=1000 / NO=1000`, ціни `0.50 / 0.50`, fee `200 bps` ✅
-- Deployer ARCT: `98990` (100000 − 10 reward − 1000 seed) ✅
-- Перевірка відтворювана: `node --experimental-strip-types scripts/verify-deploy.ts`
+- Market `priceRequested = true` ✅
+- AMM `initialized = true`, резерви `YES=5 / NO=5 USDC`, ціни `0.50 / 0.50`, fee `2%` ✅
+- Колатераль = USDC ERC-20 (6 dec); seed 5 USDC; reward 0.1 USDC; bond 1 USDC
+- Перевірка: `node --experimental-strip-types scripts/verify-deploy.ts`
 
-> Для нового деплою (нові адреси) — `npm run deploy`; адреси автоматично перезапишуться в `.env.local`.
+## Нотатки щодо USDC на Arc
+
+- USDC — **нативний газовий токен** Arc (18 dec), але має **ERC-20-інтерфейс** за системною адресою
+  `0x3600…0000` з **6 decimals**. Маркет використовує саме ERC-20 (approve/transferFrom).
+- USDC **не мінтиться** — отримати з [faucet.circle.com](https://faucet.circle.com/). UI має кнопку «USDC Faucet».
+- Суми малі (seed 5, reward 0.1, bond 1), бо газ і колатераль — з одного USDC-балансу.
+- **Chain-guard:** усі транзакції форсять Arc Testnet (chainId 5042002); якщо гаманець на іншій
+  мережі — UI показує «Switch to Arc Testnet». Це усуває ризик випадкових транзакцій у mainnet.
 </content>

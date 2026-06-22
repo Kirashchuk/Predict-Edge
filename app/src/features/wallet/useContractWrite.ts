@@ -1,8 +1,23 @@
 import { useState, useCallback } from 'react';
-import { usePublicClient, useWriteContract } from 'wagmi';
+import { usePublicClient, useWriteContract, useAccount, useSwitchChain } from 'wagmi';
 import { type Abi, type Address, type Hex, encodeFunctionData } from 'viem';
 import { useWallet } from '@/features/wallet/WalletContext';
-import { WAGMI_POLLING_INTERVAL } from '@/features/wallet/wagmi';
+import { WAGMI_POLLING_INTERVAL, arcTestnet } from '@/features/wallet/wagmi';
+
+/** Ensure the injected wallet is on Arc Testnet, switching/adding it if not.
+ *  Critical: without this, wagmi sends the tx on whatever chain MetaMask is on
+ *  (e.g. Ethereum mainnet), spending real funds on the wrong network. */
+export async function ensureArcChain(
+  connectedChainId: number | undefined,
+  switchChainAsync: (a: { chainId: number }) => Promise<unknown>,
+) {
+  if (connectedChainId === arcTestnet.id) return;
+  try {
+    await switchChainAsync({ chainId: arcTestnet.id });
+  } catch {
+    throw new Error('Wrong network. Switch your wallet to Arc Testnet (chain 5042002) and retry.');
+  }
+}
 
 interface ContractWriteParams {
   address: Address;
@@ -20,6 +35,8 @@ export function useContractWrite() {
   const { walletType, bundlerClient } = useWallet();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+  const { chainId: connectedChainId } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
 
   const [hash, setHash] = useState<Hex | undefined>();
   const [isPending, setIsPending] = useState(false);
@@ -60,11 +77,14 @@ export function useContractWrite() {
       } else {
         try {
           if (!publicClient) throw new Error('No public client available');
+          // Force Arc Testnet before sending — never let a tx hit mainnet.
+          await ensureArcChain(connectedChainId, switchChainAsync);
           const txHash = await writeContractAsync({
             address: params.address,
             abi: params.abi,
             functionName: params.functionName,
             args: params.args as unknown[],
+            chainId: arcTestnet.id,
           } as unknown as Parameters<typeof writeContractAsync>[0]);
           setHash(txHash);
           setIsPending(false);
@@ -83,7 +103,7 @@ export function useContractWrite() {
         }
       }
     },
-    [walletType, bundlerClient, publicClient, writeContractAsync],
+    [walletType, bundlerClient, publicClient, writeContractAsync, connectedChainId, switchChainAsync],
   );
 
   return { write, isPending, isConfirming, isSuccess, error, hash };

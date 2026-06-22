@@ -1,7 +1,7 @@
 import { useReadContracts } from 'wagmi';
 import { hexToString, type Address } from 'viem';
 import { MARKET_ABI, ERC20_ABI } from '@/shared/lib/contracts/abis';
-import { ARCT_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { USDC_ADDRESS } from '@/shared/lib/contracts/addresses';
 import { useWallet } from '@/features/wallet/WalletContext';
 import { LIVE_STATE_REFETCH_INTERVAL } from '@/features/wallet/wagmi';
 
@@ -63,10 +63,10 @@ export function useTokenBalances(
   const { address } = useWallet();
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
-      { address: ARCT_ADDRESS, abi: ERC20_ABI, functionName: 'balanceOf', args: address ? [address] : undefined },
+      { address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'balanceOf', args: address ? [address] : undefined },
       { address: longToken, abi: ERC20_ABI, functionName: 'balanceOf', args: address ? [address] : undefined },
       { address: shortToken, abi: ERC20_ABI, functionName: 'balanceOf', args: address ? [address] : undefined },
-      { address: ARCT_ADDRESS, abi: ERC20_ABI, functionName: 'allowance', args: address && market ? [address, market] : undefined },
+      { address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'allowance', args: address && market ? [address, market] : undefined },
     ],
     query: {
       enabled: !!address && !!longToken && !!shortToken,

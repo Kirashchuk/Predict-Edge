@@ -8,7 +8,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { createPublicClient, http, formatEther, type Address } from "viem";
+import { createPublicClient, http, formatEther, formatUnits, type Address } from "viem";
 
 function readEnv(): Record<string, string> {
   const p = path.resolve(process.cwd(), ".env.local");
@@ -26,7 +26,7 @@ const client = createPublicClient({ transport: http(RPC) });
 
 const AMM = env.NEXT_PUBLIC_AMM_ADDRESS as Address;
 const MARKET = env.NEXT_PUBLIC_MARKET_ADDRESS as Address;
-const ARCT = env.NEXT_PUBLIC_ARCT_ADDRESS as Address;
+const ARCT = (env.NEXT_PUBLIC_USDC_ADDRESS ?? '0x3600000000000000000000000000000000000000') as Address;
 
 const ammAbi = [
   { name: "getReserves", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }, { type: "uint256" }] },
@@ -75,18 +75,19 @@ async function main() {
   console.log(`  priceRequested:          ${priceRequested}  ${priceRequested ? "✅" : "❌"}`);
   console.log(`  receivedSettlementPrice: ${settled} (очікувано false до резолюції)`);
   console.log("");
+  // Collateral (USDC) amounts use 6 decimals; price ratios use 18.
+  const usdc6 = (v: bigint) => formatUnits(v, 6);
   console.log("AMM:");
   console.log(`  initialized:  ${ammInit}  ${ammInit ? "✅" : "❌"}`);
-  console.log(`  reserves:     YES=${formatEther(reserves[0])}  NO=${formatEther(reserves[1])}`);
+  console.log(`  reserves:     YES=${usdc6(reserves[0])}  NO=${usdc6(reserves[1])} USDC`);
   console.log(`  yesPrice:     ${formatEther(yesPrice)} (≈0.5 очікувано)`);
   console.log(`  noPrice:      ${formatEther(noPrice)} (≈0.5 очікувано)`);
   console.log(`  feeBps:       ${fee} (200 = 2%)`);
   console.log("");
   console.log("Balances:");
-  console.log(`  deployer ${arctSymbol}: ${formatEther(deployerArct)} (≈98990 = 100000-10-1000)`);
-  console.log(`  AMM ${arctSymbol}:      ${formatEther(ammArct)} (0 — пішло в market.create як колатераль)`);
-  console.log(`  deployer gas:  ${formatEther(gasBal)} USDC (залишок)`);
-  console.log("\nЗатрачено газу на деплой: ~" + (20.024 - Number(formatEther(gasBal))).toFixed(4) + " USDC\n");
+  console.log(`  deployer ${arctSymbol}: ${usdc6(deployerArct)} USDC (ERC-20, 6 dec)`);
+  console.log(`  AMM ${arctSymbol}:      ${usdc6(ammArct)} USDC (0 — пішло в market.create як колатераль)`);
+  console.log(`  deployer gas (native): ${formatEther(gasBal)} USDC`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

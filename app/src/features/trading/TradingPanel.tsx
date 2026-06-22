@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { type Address, parseEther, maxUint256 } from 'viem';
+import { type Address, parseEther, parseUnits, maxUint256 } from 'viem';
 import { Gavel, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/primitives/tabs';
 import { Button } from '@/shared/ui/primitives/button';
 import { Input } from '@/shared/ui/primitives/input';
 import { toast } from '@/shared/ui/primitives/sonner';
-import { ARCT_ADDRESS, OO_V2_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { USDC_ADDRESS, OO_V2_ADDRESS, COLLATERAL_DECIMALS } from '@/shared/lib/contracts/addresses';
 import { ERC20_ABI } from '@/shared/lib/contracts/abis';
 import { OracleState, oracleStateLabel, formatCollateral } from '@/shared/lib/contracts/types';
 import { useWallet } from '@/features/wallet/WalletContext';
@@ -82,15 +82,16 @@ function BuySell({
 
   async function submit() {
     try {
+      const amountUnits = parseUnits(amount, COLLATERAL_DECIMALS);
       if (side === 'buy') {
-        if ((arctAllowance ?? 0n) < parseEther(amount)) {
-          toast.message('Approving ARCT…');
-          await approve(ARCT_ADDRESS, maxUint256);
+        if ((arctAllowance ?? 0n) < amountUnits) {
+          toast.message('Approving USDC…');
+          await approve(USDC_ADDRESS, maxUint256);
         }
         toast.message(`Buying ${outcome.toUpperCase()}…`);
         await buy(outcome, amount);
       } else {
-        if (sellToken && (sellAllowance ?? 0n) < parseEther(amount)) {
+        if (sellToken && (sellAllowance ?? 0n) < amountUnits) {
           toast.message('Approving tokens…');
           await approve(sellToken, maxUint256);
         }
@@ -116,13 +117,13 @@ function BuySell({
       </div>
       <Input
         type="number"
-        placeholder={side === 'buy' ? 'ARCT amount' : `${outcome.toUpperCase()} tokens`}
+        placeholder={side === 'buy' ? 'USDC amount' : `${outcome.toUpperCase()} tokens`}
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
       />
       {out !== undefined && Number(amount) > 0 && (
         <div className="flex justify-between border border-border bg-surface px-3 py-2">
-          <span className="data-label">{side === 'buy' ? 'EST. TOKENS OUT' : 'EST. ARCT OUT'}</span>
+          <span className="data-label">{side === 'buy' ? 'EST. TOKENS OUT' : 'EST. USDC OUT'}</span>
           <span className="data-value text-gold">{formatCollateral(out)}</span>
         </div>
       )}
@@ -180,7 +181,7 @@ function ResolveTab({
       {canPropose && (
         <>
           <div className="data-label">
-            PROPOSE OUTCOME {bond !== undefined && `· BOND ${formatCollateral(bond)} ARCT`}
+            PROPOSE OUTCOME {bond !== undefined && `· BOND ${formatCollateral(bond)} USDC`}
           </div>
           {needsBondApproval && (
             <Button
@@ -188,7 +189,7 @@ function ResolveTab({
               className="w-full"
               disabled={!isConnected || busy}
               onClick={() =>
-                approveBond.write({ address: ARCT_ADDRESS, abi: ERC20_ABI, functionName: 'approve', args: [OO_V2_ADDRESS, maxUint256] })
+                approveBond.write({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'approve', args: [OO_V2_ADDRESS, maxUint256] })
               }
             >
               {approveBond.isPending || approveBond.isConfirming ? 'Approving…' : 'Approve bond'}

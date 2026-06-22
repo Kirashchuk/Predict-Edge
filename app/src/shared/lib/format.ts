@@ -1,6 +1,6 @@
 import { formatUnits } from 'viem';
 
-export function fmtToken(value: bigint | undefined, decimals = 18, maxFrac = 4): string {
+export function fmtToken(value: bigint | undefined, decimals = 6, maxFrac = 4): string {
   if (value === undefined) return '—';
   const n = Number(formatUnits(value, decimals));
   return n.toLocaleString('en-US', { maximumFractionDigits: maxFrac });

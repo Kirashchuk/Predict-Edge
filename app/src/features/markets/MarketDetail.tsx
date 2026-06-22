@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/shared/ui/primitives/button';
 import { toast } from '@/shared/ui/primitives/sonner';
 import { ERC20_ABI } from '@/shared/lib/contracts/abis';
-import { ARCT_ADDRESS, OO_V2_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { USDC_ADDRESS, OO_V2_ADDRESS } from '@/shared/lib/contracts/addresses';
 import { formatCollateral } from '@/shared/lib/contracts/types';
 import { fmtPricePct, fmtToken } from '@/shared/lib/format';
 import { useWallet } from '@/features/wallet/WalletContext';
@@ -36,7 +36,7 @@ export default function MarketDetail() {
   const settlePos = useSettlePosition(market);
 
   const { data: arctAllowanceToOo } = useReadContract({
-    address: ARCT_ADDRESS,
+    address: USDC_ADDRESS,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: account ? [account, OO_V2_ADDRESS] : undefined,
@@ -95,7 +95,7 @@ export default function MarketDetail() {
             {account ? (
               <>
                 <div className="grid grid-cols-3 gap-3">
-                  <Stat label="ARCT" value={formatCollateral(balances.arctBalance)} />
+                  <Stat label="USDC" value={formatCollateral(balances.arctBalance)} />
                   <Stat label="YES TOKENS" value={formatCollateral(balances.longBalance)} accent="success" />
                   <Stat label="NO TOKENS" value={formatCollateral(balances.shortBalance)} accent="destructive" />
                 </div>
@@ -105,7 +105,7 @@ export default function MarketDetail() {
                     disabled={settlePos.isPending || settlePos.isConfirming}
                     onClick={redeem}
                   >
-                    {settlePos.isPending || settlePos.isConfirming ? 'Redeeming…' : 'Redeem positions for ARCT'}
+                    {settlePos.isPending || settlePos.isConfirming ? 'Redeeming…' : 'Redeem positions for USDC'}
                   </Button>
                 ) : null}
               </>

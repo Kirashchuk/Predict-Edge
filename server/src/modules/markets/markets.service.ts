@@ -6,12 +6,16 @@ import { logger } from '../../core/logger';
 import { artifactPath } from '../../core/paths';
 import { prependMarket, type StoredMarket } from './markets.store';
 
-// --- Market parameters (mirror scripts/deploy.ts CONFIG / legacy API) -----
-const PROPOSER_REWARD = ethers.parseEther('10'); // 10 ARCT
+// Collateral = Arc Testnet native USDC ERC-20 (system address, 6 decimals).
+const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
+const usdc = (n: string) => ethers.parseUnits(n, 6);
+
+// --- Market parameters (mirror scripts/deploy.ts CONFIG; small USDC amounts) -
+const PROPOSER_REWARD = usdc('0.1'); // 0.1 USDC
 const MARKET_LIVENESS = 60n; // 1 minute (testnet)
-const PROPOSER_BOND = ethers.parseEther('100'); // 100 ARCT
+const PROPOSER_BOND = usdc('1'); // 1 USDC
 const AMM_FEE_BPS = 200n; // 2%
-const SEED_LIQUIDITY = ethers.parseEther('1000'); // 1000 ARCT
+const SEED_LIQUIDITY = usdc('5'); // 5 USDC
 
 export type CreateMarketError =
   | { kind: 'not_configured'; message: string }
@@ -30,31 +34,30 @@ function loadArtifact(contractPath: string): Artifact {
 const ERC20_ABI = [
   'function approve(address spender, uint256 amount) returns (bool)',
   'function balanceOf(address account) view returns (uint256)',
-  'function allocateTo(address ownerAddress, uint256 value)',
 ];
 const MARKET_INIT_ABI = ['function initializeMarket()'];
 const AMM_INIT_ABI = ['function initialize(uint256 _initialLiquidity)'];
 
 function deployerConfig(): Result<
-  { privateKey: string; arct: string; finder: string; timer: string },
+  { privateKey: string; finder: string; timer: string },
   CreateMarketError
 > {
-  const { PRIVATE_KEY, ARCT_ADDRESS, FINDER_ADDRESS, TIMER_ADDRESS } = env;
+  const { PRIVATE_KEY, FINDER_ADDRESS, TIMER_ADDRESS } = env;
   if (!PRIVATE_KEY) {
     return err({ kind: 'not_configured', message: 'Server not configured: missing PRIVATE_KEY' });
   }
-  if (!ARCT_ADDRESS || !FINDER_ADDRESS || !TIMER_ADDRESS) {
+  if (!FINDER_ADDRESS || !TIMER_ADDRESS) {
     return err({
       kind: 'not_configured',
       message: 'Server not configured: missing contract addresses. Run the deploy script first.',
     });
   }
-  return ok({ privateKey: PRIVATE_KEY, arct: ARCT_ADDRESS, finder: FINDER_ADDRESS, timer: TIMER_ADDRESS });
+  return ok({ privateKey: PRIVATE_KEY, finder: FINDER_ADDRESS, timer: TIMER_ADDRESS });
 }
 
 async function deployMarketAndAmm(
   title: string,
-  cfg: { privateKey: string; arct: string; finder: string; timer: string },
+  cfg: { privateKey: string; finder: string; timer: string },
 ): Promise<StoredMarket> {
   const provider = new ethers.JsonRpcProvider(env.ARC_RPC_URL);
   const key = cfg.privateKey.startsWith('0x') ? cfg.privateKey : `0x${cfg.privateKey}`;
@@ -66,22 +69,22 @@ async function deployMarketAndAmm(
   const marketArtifact = loadArtifact('EventBasedPredictionMarket.sol/EventBasedPredictionMarket.json');
   const ammArtifact = loadArtifact('PredictionMarketAMM.sol/PredictionMarketAMM.json');
 
-  const arct = new ethers.Contract(cfg.arct, ERC20_ABI, wallet);
+  const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, wallet);
 
-  // Ensure the deployer holds enough ARCT (reward + seed) before deploying.
+  // USDC cannot be minted — the deployer must already hold enough (reward + seed).
   const totalNeeded = PROPOSER_REWARD + SEED_LIQUIDITY;
-  const balance: bigint = await arct.balanceOf!(wallet.address);
+  const balance: bigint = await usdcContract.balanceOf!(wallet.address);
   if (balance < totalNeeded) {
-    const mintAmount = totalNeeded - balance + ethers.parseEther('100');
-    logger.info({ mintAmount: mintAmount.toString() }, 'minting ARCT for deployer');
-    await (await arct.allocateTo!(wallet.address, mintAmount)).wait();
+    throw new Error(
+      `Insufficient USDC: have ${ethers.formatUnits(balance, 6)}, need ${ethers.formatUnits(totalNeeded, 6)} (+ gas). Top up from https://faucet.circle.com/`,
+    );
   }
 
   // --- Deploy market ------------------------------------------------------
   const marketFactory = new ethers.ContractFactory(marketArtifact.abi, marketArtifact.bytecode, wallet);
   const market = await marketFactory.deploy(
     pairName,
-    cfg.arct,
+    USDC_ADDRESS,
     ancillaryData,
     cfg.finder,
     cfg.timer,
@@ -94,7 +97,7 @@ async function deployMarketAndAmm(
   logger.info({ marketAddress }, 'market deployed');
 
   // --- Initialize market (approve reward + requestPrice) ------------------
-  await (await arct.approve!(marketAddress, PROPOSER_REWARD)).wait();
+  await (await usdcContract.approve!(marketAddress, PROPOSER_REWARD)).wait();
   const marketInit = new ethers.Contract(marketAddress, MARKET_INIT_ABI, wallet);
   await (await marketInit.initializeMarket!()).wait();
 
@@ -105,7 +108,7 @@ async function deployMarketAndAmm(
   const ammAddress = await amm.getAddress();
   logger.info({ ammAddress }, 'amm deployed');
 
-  await (await arct.approve!(ammAddress, SEED_LIQUIDITY)).wait();
+  await (await usdcContract.approve!(ammAddress, SEED_LIQUIDITY)).wait();
   const ammInit = new ethers.Contract(ammAddress, AMM_INIT_ABI, wallet);
   await (await ammInit.initialize!(SEED_LIQUIDITY)).wait();
 

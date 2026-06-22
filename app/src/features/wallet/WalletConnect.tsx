@@ -1,36 +1,45 @@
-import { parseEther } from 'viem';
-import { LogOut, Coins, Fingerprint, Wallet } from 'lucide-react';
+import { useAccount, useSwitchChain } from 'wagmi';
+import { LogOut, Coins, Fingerprint, Wallet, AlertTriangle } from 'lucide-react';
 import { Button } from '@/shared/ui/primitives/button';
-import { toast } from '@/shared/ui/primitives/sonner';
 import { shortAddr } from '@/shared/lib/format';
-import { ARCT_ADDRESS } from '@/shared/lib/contracts/addresses';
-import { TESTNET_ERC20_ABI } from '@/shared/lib/contracts/abis';
 import { useWallet } from './WalletContext';
 import { ConnectDialog } from './ConnectDialog';
-import { useContractWrite } from './useContractWrite';
+import { arcTestnet } from './wagmi';
 
 export function WalletConnect() {
   const { address, isConnected, walletType, disconnect } = useWallet();
-  const { write } = useContractWrite();
+  const { chainId } = useAccount();
+  const { switchChain, isPending: switching } = useSwitchChain();
 
-  async function mintArct() {
-    if (!address) return;
-    toast.message('Minting 1,000 ARCT…');
-    await write({
-      address: ARCT_ADDRESS,
-      abi: TESTNET_ERC20_ABI,
-      functionName: 'allocateTo',
-      args: [address, parseEther('1000')],
-    });
-    toast.success('Faucet: requested 1,000 ARCT');
-  }
+  // MetaMask on the wrong chain — show a switch button so no tx hits mainnet.
+  const wrongNetwork = walletType === 'metamask' && chainId !== undefined && chainId !== arcTestnet.id;
 
   if (!isConnected) return <ConnectDialog />;
 
+  if (wrongNetwork) {
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={switching}
+          onClick={() => switchChain({ chainId: arcTestnet.id })}
+        >
+          <AlertTriangle className="h-4 w-4" /> {switching ? 'Switching…' : 'Switch to Arc Testnet'}
+        </Button>
+        <Button variant="ghost" size="icon" onClick={disconnect} aria-label="Disconnect">
+          <LogOut className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={mintArct}>
-        <Coins className="h-4 w-4" /> Faucet
+      <Button variant="outline" size="sm" asChild>
+        <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer">
+          <Coins className="h-4 w-4" /> USDC Faucet
+        </a>
       </Button>
       <span className="hidden items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 font-mono text-xs text-foreground sm:flex">
         {walletType === 'circle' ? (

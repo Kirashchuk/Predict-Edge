@@ -42,8 +42,8 @@ export function CreateMarketDialog() {
         <DialogHeader>
           <DialogTitle>Create a new market</DialogTitle>
           <DialogDescription>
-            Deploys a fresh EventBasedPredictionMarket + AMM on Arc Testnet and seeds 1,000 ARCT of
-            liquidity. The server signs with the deployer key.
+            Deploys a fresh EventBasedPredictionMarket + AMM on Arc Testnet and seeds USDC liquidity.
+            The server signs with the deployer key.
           </DialogDescription>
         </DialogHeader>
         <Input
