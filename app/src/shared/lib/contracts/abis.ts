@@ -1,5 +1,4 @@
-// Contract ABIs (ported from the legacy lib/contracts/abis). The on-chain
-// contracts are unchanged by the stack migration, so the ABIs are identical.
+// Contract ABIs used by the AMM, market, UMA oracle, and on-chain CLOB.
 
 export const AMM_ABI = [
   { anonymous: false, inputs: [{ indexed: true, name: 'buyer', type: 'address' }, { indexed: false, name: 'usdcIn', type: 'uint256' }, { indexed: false, name: 'yesOut', type: 'uint256' }], name: 'BuyYes', type: 'event' },

@@ -2,7 +2,7 @@
   "name": "predict-edge",
   "version": "1.0.0",
   "private": true,
-  "description": "On-chain prediction markets on Arc Testnet — Templars stack (Vite + React, Bun/Hono, Hardhat). Monorepo root scopes the Solidity contracts + deploy tooling; the frontend lives in app/, the backend in server/.",
+  "description": "On-chain prediction markets on Arc Testnet with Vite + React, Bun/Hono, Hardhat, UMA, AMM, and on-chain CLOB.",
   "scripts": {
     "dev:app": "cd app && bun run dev",
     "dev:api": "cd server && bun run dev",
@@ -10,12 +10,12 @@
     "compile": "hardhat compile",
     "deploy": "hardhat run scripts/deploy.ts --network arcTestnet",
     "deploy:clob": "hardhat run scripts/deploy-clob.ts --network arcTestnet",
-    "verify-deploy": "node --no-warnings --experimental-strip-types scripts/verify-deploy.ts",
-    "keeper": "node --no-warnings --experimental-strip-types scripts/keeper.ts",
-    "generate-wallet": "node --no-warnings --experimental-strip-types scripts/generate-wallet.ts",
-    "sync-env": "node --no-warnings --experimental-strip-types scripts/sync-env.ts",
+    "verify-deploy": "bun run scripts/verify-deploy.ts",
+    "keeper": "bun run scripts/keeper.ts",
+    "generate-wallet": "bun run scripts/generate-wallet.ts",
+    "sync-env": "bun run scripts/sync-env.ts",
     "test:contracts": "hardhat test",
-    "reset": "node --no-warnings --experimental-strip-types scripts/reset-markets.ts"
+    "reset": "bun run scripts/reset-markets.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.6",
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@types/node": "^20",
+    "ethers": "^6.14.0",
     "hardhat": "^2.22.0",
     "ts-node": "^10.9.0",
     "typescript": "^5"

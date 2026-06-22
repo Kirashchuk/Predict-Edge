@@ -2,13 +2,14 @@
  * Пост-деплойна перевірка стану контрактів на Arc Testnet.
  * Читає on-chain стан (резерви AMM, ціни, статус ринку, баланси) і друкує звіт.
  *
- * Запуск: node --no-warnings --experimental-strip-types scripts/verify-deploy.ts
+ * Usage: bun run verify-deploy
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import { createPublicClient, http, formatEther, formatUnits, isAddress, type Address } from "viem";
+import { Wallet } from "ethers";
 
 function readEnv(): Record<string, string> {
   const p = path.resolve(process.cwd(), ".env.local");
@@ -21,13 +22,21 @@ function readEnv(): Record<string, string> {
 }
 
 const env = readEnv();
-const RPC = env.NEXT_PUBLIC_ALCHEMY_RPC_URL || "https://rpc.testnet.arc.network";
+const pick = (name: string, fallback = ""): string =>
+  env[`DEPLOY_${name}`] || fallback;
+const RPC = env.DEPLOY_RPC_URL || "https://rpc.testnet.arc.network";
 const client = createPublicClient({ transport: http(RPC) });
 
-const AMM = env.NEXT_PUBLIC_AMM_ADDRESS as Address;
-const MARKET = env.NEXT_PUBLIC_MARKET_ADDRESS as Address;
-const CLOB = env.NEXT_PUBLIC_CLOB_ADDRESS as Address | undefined;
-const ARCT = (env.NEXT_PUBLIC_USDC_ADDRESS ?? '0x3600000000000000000000000000000000000000') as Address;
+const AMM = pick("AMM_ADDRESS") as Address;
+const MARKET = pick("MARKET_ADDRESS") as Address;
+const CLOB = pick("CLOB_ADDRESS") as Address | undefined;
+const USDC = pick("USDC_ADDRESS", "0x3600000000000000000000000000000000000000") as Address;
+
+const deployerAddress = (() => {
+  if (!env.PRIVATE_KEY) return USDC;
+  const key = env.PRIVATE_KEY.startsWith("0x") ? env.PRIVATE_KEY : `0x${env.PRIVATE_KEY}`;
+  return new Wallet(key).address as Address;
+})();
 
 const ammAbi = [
   { name: "getReserves", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }, { type: "uint256" }] },
@@ -70,11 +79,11 @@ async function main() {
     client.readContract({ address: MARKET, abi: marketAbi, functionName: "pairName" }),
   ]);
 
-  const [arctSymbol, deployerArct, ammArct, gasBal] = await Promise.all([
-    client.readContract({ address: ARCT, abi: erc20Abi, functionName: "symbol" }),
-    client.readContract({ address: ARCT, abi: erc20Abi, functionName: "balanceOf", args: [env.PRIVATE_KEY ? ("0x72CA27CC843373671DaA8F4876C36aa84ee74A3E" as Address) : (ARCT) ] }),
-    client.readContract({ address: ARCT, abi: erc20Abi, functionName: "balanceOf", args: [AMM] }),
-    client.getBalance({ address: "0x72CA27CC843373671DaA8F4876C36aa84ee74A3E" as Address }),
+  const [usdcSymbol, deployerUsdc, ammUsdc, gasBal] = await Promise.all([
+    client.readContract({ address: USDC, abi: erc20Abi, functionName: "symbol" }),
+    client.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [deployerAddress] }),
+    client.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [AMM] }),
+    client.getBalance({ address: deployerAddress }),
   ]);
 
   console.log(`Market (${pairName}):`);
@@ -107,12 +116,12 @@ async function main() {
     console.log("");
   } else {
     console.log("CLOB:");
-    console.log("  NEXT_PUBLIC_CLOB_ADDRESS is not configured.");
+    console.log("  DEPLOY_CLOB_ADDRESS is not configured.");
     console.log("");
   }
   console.log("Balances:");
-  console.log(`  deployer ${arctSymbol}: ${usdc6(deployerArct)} USDC (ERC-20, 6 dec)`);
-  console.log(`  AMM ${arctSymbol}:      ${usdc6(ammArct)} USDC (0 — пішло в market.create як колатераль)`);
+  console.log(`  deployer ${usdcSymbol}: ${usdc6(deployerUsdc)} USDC (ERC-20, 6 dec)`);
+  console.log(`  AMM ${usdcSymbol}:      ${usdc6(ammUsdc)} USDC`);
   console.log(`  deployer gas (native): ${formatEther(gasBal)} USDC`);
 }
 

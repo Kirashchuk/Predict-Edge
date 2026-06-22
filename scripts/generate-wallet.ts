@@ -6,8 +6,8 @@
  * (який ігнорується git'ом). У консоль виводиться тільки адреса та маскований ключ.
  *
  * Використання:
- *   node --no-warnings --experimental-strip-types scripts/generate-wallet.ts
- *   node --no-warnings --experimental-strip-types scripts/generate-wallet.ts --force   # перезаписати наявний ключ
+ *   bun run generate-wallet
+ *   bun run scripts/generate-wallet.ts --force
  *
  * ⚠️ ТІЛЬКИ ДЛЯ ТЕСТНЕТУ. Ніколи не використовуйте згенерований так ключ у мейннеті
  *    чи для зберігання реальних коштів.
@@ -66,8 +66,8 @@ function main() {
 
   // Записуємо у .env.local; RPC ставимо лише якщо ще не заданий.
   const toWrite: Record<string, string> = { PRIVATE_KEY: privateKey };
-  if (!env.NEXT_PUBLIC_ALCHEMY_RPC_URL) {
-    toWrite.NEXT_PUBLIC_ALCHEMY_RPC_URL = DEFAULT_RPC;
+  if (!env.DEPLOY_RPC_URL) {
+    toWrite.DEPLOY_RPC_URL = DEFAULT_RPC;
   }
   writeEnv(envPath, toWrite);
 
@@ -78,7 +78,7 @@ function main() {
   console.log("  Повний приватний ключ записано у .env.local (gitignored).\n");
   console.log("  Наступні кроки:");
   console.log("   1. Закиньте тестовий USDC на адресу вище (faucet.circle.com → Arc Testnet).");
-  console.log("   2. npm run deploy");
+  console.log("   2. bun run deploy");
   console.log("   3. (Опц.) Імпортуйте ключ із .env.local у MetaMask, щоб діяти як користувач.\n");
 }
 

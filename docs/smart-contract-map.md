@@ -168,7 +168,7 @@ Deploy script phases:
 8. Deploy `PredictionMarketAMM`.
 9. Approve seed liquidity and call `initialize`.
 10. Deploy `OnChainLimitOrderBook`.
-11. Write addresses into root `.env.local`, including `NEXT_PUBLIC_CLOB_ADDRESS`.
+11. Write addresses into root `.env.local`, including `DEPLOY_CLOB_ADDRESS`.
 
 ## `OnChainLimitOrderBook`
 
@@ -224,7 +224,7 @@ Security notes:
 - `nonReentrant` protects state-changing order functions.
 - `whenActive` blocks place/fill/match after market settlement.
 - Escrow is held by the CLOB contract and returned on cancel/final residual.
-- There is no off-chain signature model; orders are regular on-chain transactions.
+- Limit orders are regular on-chain transactions with escrow in `OnChainLimitOrderBook`.
 - Matching uses seller price, so keeper/matcher policy should be documented before production.
 
 ## Trust boundaries
@@ -271,7 +271,6 @@ graph TB
 ## Off-chain components
 
 - `data/markets.json` stores user-created market metadata.
-- `/v1/orders` and `data/orders.json` remain in the API as a legacy file-backed order path.
-- Current `TradingPanel` and `OrderBook` use `OnChainLimitOrderBook`, not `/v1/orders`.
+- Current `TradingPanel` and `OrderBook` use `OnChainLimitOrderBook`.
 - `OrderBook` also derives AMM depth from reserves as reference liquidity.
 - `TradeHistory` reads AMM and CLOB logs from Arc.

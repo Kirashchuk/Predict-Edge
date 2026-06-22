@@ -1,5 +1,5 @@
-// ESLint 9 flat config. Mirrors the Templars app: prettier owns formatting,
-// react-hooks enforced, and an architecture guard that forbids the legacy
+// ESLint 9 flat config: prettier owns formatting,
+// react-hooks enforced, and an architecture guard that forbids deprecated
 // import roots so every module lives under app/, features/<x>/, shared/, styles/.
 import js from '@eslint/js';
 import globals from 'globals';
@@ -30,7 +30,7 @@ export default tseslint.config(
       'no-empty': ['error', { allowEmptyCatch: true }],
 
       // Architecture guard: concrete modules live under app/, features/<x>/,
-      // shared/, or styles/ — not the legacy roots.
+      // shared/, or styles/ - not deprecated roots.
       'no-restricted-imports': [
         'error',
         {

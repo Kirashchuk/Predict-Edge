@@ -54,12 +54,14 @@ function ClobRow({
   order,
   mine,
   busy,
+  canFill,
   onCancel,
   onFill,
 }: {
   order: ClobOrder;
   mine: boolean;
   busy: boolean;
+  canFill: boolean;
   onCancel: (order: ClobOrder) => void;
   onFill: (order: ClobOrder) => void;
 }) {
@@ -82,7 +84,8 @@ function ClobRow({
       ) : (
         <button
           onClick={() => onFill(order)}
-          disabled={busy}
+          disabled={busy || !canFill}
+          title={canFill ? undefined : 'Fill the best-priced order first'}
           className="border border-gold/60 bg-gold/15 px-1.5 font-mono text-[0.6rem] uppercase text-gold hover:bg-gold/25 disabled:opacity-50"
         >
           Fill
@@ -105,10 +108,11 @@ export function OrderBook({
   const clobBook = useClobOrderBook(clob, outcome);
   const actions = useClobActions(clob);
   const allowances = useClobAllowances(clob, longToken, shortToken);
+  const ammOutcome = outcome === CLOB_OUTCOME.Yes ? 'yes' : 'no';
 
   const ammBook = useMemo(
-    () => buildOrderBook(reserveYes, reserveNo, feeBps),
-    [reserveYes, reserveNo, feeBps],
+    () => buildOrderBook(reserveYes, reserveNo, feeBps, 7, ammOutcome),
+    [reserveYes, reserveNo, feeBps, ammOutcome],
   );
 
   const bestBid = clobBook.bids[0];
@@ -129,6 +133,11 @@ export function OrderBook({
   async function fill(order: ClobOrder) {
     try {
       if (!isConnected) throw new Error('Connect a wallet to fill orders');
+      const bestForSide = order.side === CLOB_SIDE.Sell ? bestAsk : bestBid;
+      if (!bestForSide || bestForSide.id !== order.id) {
+        throw new Error('Fill the best-priced order first');
+      }
+
       if (order.side === CLOB_SIDE.Buy) {
         const token = order.outcome === CLOB_OUTCOME.Yes ? longToken : shortToken;
         const allowance = order.outcome === CLOB_OUTCOME.Yes ? allowances.yesAllowance : allowances.noAllowance;
@@ -216,6 +225,7 @@ export function OrderBook({
                   order={order}
                   mine={Boolean(address && order.maker.toLowerCase() === address.toLowerCase())}
                   busy={busy}
+                  canFill={bestAsk?.id === order.id}
                   onCancel={cancel}
                   onFill={fill}
                 />
@@ -249,6 +259,7 @@ export function OrderBook({
                   order={order}
                   mine={Boolean(address && order.maker.toLowerCase() === address.toLowerCase())}
                   busy={busy}
+                  canFill={bestBid?.id === order.id}
                   onCancel={cancel}
                   onFill={fill}
                 />

@@ -15,7 +15,7 @@ const PROPOSER_REWARD = usdc('0.1'); // 0.1 USDC
 const MARKET_LIVENESS = 60n; // 1 minute (testnet)
 const PROPOSER_BOND = usdc('1'); // 1 USDC
 const AMM_FEE_BPS = 200n; // 2%
-const SEED_LIQUIDITY = usdc('5'); // 5 USDC
+const SEED_LIQUIDITY = usdc('1'); // 1 USDC
 
 export type CreateMarketError =
   | { kind: 'not_configured'; message: string }

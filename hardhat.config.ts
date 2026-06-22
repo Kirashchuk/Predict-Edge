@@ -42,7 +42,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     arcTestnet: {
-      url: process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL || "https://rpc.testnet.arc.network",
+      url: process.env.DEPLOY_RPC_URL || "https://rpc.testnet.arc.network",
       accounts,
       chainId: 5042002,
     },

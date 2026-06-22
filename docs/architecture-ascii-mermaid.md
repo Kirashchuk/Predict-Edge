@@ -15,7 +15,7 @@ flowchart TB
     subgraph PredictEdge["Predict-Edge"]
         App["app/<br/>Vite React SPA + PWA"]
         Api["server/<br/>Bun + Hono API"]
-        Data["data/<br/>markets.json + legacy orders.json"]
+        Data["data/<br/>markets.json"]
         Scripts["scripts/<br/>Bun scripts + Hardhat deploy<br/>keeper + env sync"]
         Launch[".claude/launch.json<br/>Codex app launch profile"]
     end
@@ -80,7 +80,6 @@ flowchart LR
     subgraph Backend["Backend container: server/src"]
         Hono["app.ts<br/>OpenAPIHono, CORS, docs"]
         MarketsApi["modules/markets<br/>GET/POST /v1/markets"]
-        OrdersApi["modules/orders<br/>legacy /v1/orders"]
         Config["core/config<br/>env + RPC + private key"]
         Stores["stores<br/>JSON file persistence"]
     end
@@ -106,13 +105,10 @@ flowchart LR
 
     Markets -->|fetch user markets| MarketsApi
     Markets -->|create market| MarketsApi
-    Trading -->|legacy path only| OrdersApi
 
     Hono --> MarketsApi
-    Hono --> OrdersApi
     Hono --> Config
     MarketsApi --> Stores
-    OrdersApi --> Stores
     MarketsApi -->|deploy market + AMM + CLOB| EPM
     MarketsApi --> AMM2
     MarketsApi --> CLOB2
@@ -141,7 +137,6 @@ flowchart TB
     subgraph ApiPlane["API and metadata plane"]
         HonoApi["Hono API"]
         MarketStore["data/markets.json"]
-        LegacyOrderStore["data/orders.json"]
         OpenApi["/docs + /openapi.json"]
     end
 
@@ -163,7 +158,6 @@ flowchart TB
     Query --> HonoApi
     Query --> Wagmi
     HonoApi --> MarketStore
-    HonoApi --> LegacyOrderStore
     HonoApi --> OpenApi
     Wagmi --> Charts
 
@@ -217,10 +211,10 @@ sequenceDiagram
     MKT->>UMA: requestPrice + callbacks + event based mode
     Deploy->>AMM: deploy AMM(market, 200 bps)
     Deploy->>USDC: approve seed liquidity
-    Deploy->>AMM: initialize(5 USDC)
+    Deploy->>AMM: initialize(1 USDC)
     AMM->>MKT: create YES and NO reserves
     Deploy->>CLOB: deploy CLOB(market)
-    Deploy->>Env: write NEXT_PUBLIC_* addresses
+    Deploy->>Env: write DEPLOY_* addresses
     Op->>Sync: bun run sync-env
     Sync->>AppEnv: write VITE_* addresses
     Op->>Api: bun run dev:api

@@ -8,8 +8,7 @@
 | Вимога | Деталі |
 |---|---|
 | Node.js | v18+ для Hardhat |
-| npm | root package manager для contracts/deploy tooling |
-| Bun | для `app/` і `server/` |
+| Bun | package manager and command runner for root, `app/`, and `server/` |
 | Deployer wallet | EOA private key у root `.env.local` |
 | Arc Testnet USDC | Потрібен і для gas, і для trading collateral |
 | Circle credentials | Optional, лише для passkey wallet у frontend |
@@ -42,27 +41,27 @@ cp .env.example .env.local
 
 ```ini
 PRIVATE_KEY=<64_hex_private_key_without_or_with_0x>
-NEXT_PUBLIC_ALCHEMY_RPC_URL=https://rpc.testnet.arc.network
+DEPLOY_RPC_URL=https://rpc.testnet.arc.network
 ```
 
 Optional Circle values для frontend passkey:
 
 ```ini
-NEXT_PUBLIC_CIRCLE_CLIENT_KEY=<circle_client_key>
-NEXT_PUBLIC_CIRCLE_CLIENT_URL=<circle_client_url>
+VITE_CIRCLE_CLIENT_KEY=<circle_client_key>
+VITE_CIRCLE_CLIENT_URL=<circle_client_url>
 ```
 
 Deploy script допише:
 
 ```ini
-NEXT_PUBLIC_MARKET_ADDRESS=0x...
-NEXT_PUBLIC_AMM_ADDRESS=0x...
-NEXT_PUBLIC_CLOB_ADDRESS=0x...
-NEXT_PUBLIC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
-NEXT_PUBLIC_OO_V2_ADDRESS=0x...
-NEXT_PUBLIC_FINDER_ADDRESS=0x...
-NEXT_PUBLIC_TIMER_ADDRESS=0x...
-NEXT_PUBLIC_MOCK_ORACLE_ADDRESS=0x...
+DEPLOY_MARKET_ADDRESS=0x...
+DEPLOY_AMM_ADDRESS=0x...
+DEPLOY_CLOB_ADDRESS=0x...
+DEPLOY_USDC_ADDRESS=0x3600000000000000000000000000000000000000
+DEPLOY_OO_V2_ADDRESS=0x...
+DEPLOY_FINDER_ADDRESS=0x...
+DEPLOY_TIMER_ADDRESS=0x...
+DEPLOY_MOCK_ORACLE_ADDRESS=0x...
 ```
 
 Секрети залишаються тільки в `.env.local`, який git ignores.
@@ -82,7 +81,7 @@ Deploy потребує gas і ERC-20 USDC balance. Поточний base market
 
 - `0.1 USDC` proposer reward.
 - `1 USDC` proposer bond parameter.
-- `5 USDC` AMM seed liquidity.
+- `1 USDC` AMM seed liquidity.
 
 Тримайте запас понад ці суми, бо gas теж списується з USDC balance на Arc.
 
@@ -117,7 +116,7 @@ bun run deploy
 | 6 | Деплоїть `EventBasedPredictionMarket` |
 | 7 | Approve reward + `initializeMarket()` |
 | 8 | Деплоїть `PredictionMarketAMM` з fee `200 bps` |
-| 9 | Approve + `initialize(5 USDC)` для AMM |
+| 9 | Approve + `initialize(1 USDC)` для AMM |
 | 10 | Деплоїть `OnChainLimitOrderBook` для market |
 | 11 | Записує deployed addresses у root `.env.local` |
 
@@ -162,15 +161,13 @@ bun run verify-deploy
 
 - `priceRequested = true`.
 - AMM `initialized = true`.
-- Reserves around `YES=5 / NO=5 USDC`.
+- Reserves around `YES=1 / NO=1 USDC`.
 - Prices around `0.5 / 0.5`.
 - Fee `200`.
 - Deployer/AMM USDC balances.
 
-Current note: the checked-in/local documented base addresses may predate CLOB deployment and therefore
-may not include `NEXT_PUBLIC_CLOB_ADDRESS`. If `VITE_CLOB_ADDRESS` is empty, the UI will show that
-CLOB is unavailable for that market. Rerun `bun run deploy` and `bun run sync-env` to deploy a base
-market with CLOB support.
+Current base deploy must include `DEPLOY_CLOB_ADDRESS`. If `VITE_CLOB_ADDRESS` is empty, rerun
+`bun run deploy` and `bun run sync-env` to deploy a base market with CLOB support and sync the frontend env.
 
 ## 8. Run backend і frontend
 
@@ -216,7 +213,7 @@ Content-Type: application/json
 { "title": "Will ETH trade above $10,000 this year?" }
 ```
 
-Backend uses server `PRIVATE_KEY`, deploys market + AMM + CLOB, seeds `5 USDC`, and writes metadata to
+Backend uses server `PRIVATE_KEY`, deploys market + AMM + CLOB, seeds `1 USDC`, and writes metadata to
 `data/markets.json`.
 
 Security note: do not expose this endpoint publicly without auth/rate-limit/quotas.
@@ -241,4 +238,3 @@ Security note: do not expose this endpoint publicly without auth/rate-limit/quot
 - Wrong frontend addresses: run `bun run sync-env`, restart `bun run dev:app`.
 - Bad user-created markets: run `bun run reset` or edit `data/markets.json` in a controlled dev environment.
 - Bad CLOB orders: cancel on-chain if possible, or redeploy a new market/CLOB in testnet.
-- Legacy API orders: clear `data/orders.json` if using the old `/v1/orders` path.

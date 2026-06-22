@@ -18,7 +18,10 @@ for (const file of [".env.local", ".env"]) {
   if (fs.existsSync(p)) dotenv.config({ path: p, override: false });
 }
 
-const RPC_URL = process.env.ARC_RPC_URL || process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL || "https://rpc.testnet.arc.network";
+const RPC_URL =
+  process.env.ARC_RPC_URL ||
+  process.env.DEPLOY_RPC_URL ||
+  "https://rpc.testnet.arc.network";
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS || "10000");
 
@@ -47,7 +50,7 @@ const Side = { Buy: 0, Sell: 1 } as const;
 
 function loadClobs(): string[] {
   const out = new Set<string>();
-  const envClob = process.env.NEXT_PUBLIC_CLOB_ADDRESS;
+  const envClob = process.env.DEPLOY_CLOB_ADDRESS;
   if (envClob && ethers.isAddress(envClob)) out.add(ethers.getAddress(envClob));
 
   const marketsPath = path.join(ROOT, "data", "markets.json");

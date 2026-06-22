@@ -15,7 +15,7 @@ Severity у цьому документі оцінена для testnet. Для 
 | R3 | 60s liveness | Medium | Demo convenience |
 | R4 | AMM без `minOut`/deadline | Medium | Потрібен contract/API upgrade |
 | R5 | On-chain CLOB matching/escrow complexity | Medium | Implemented with focused tests and keeper script; needs production policy |
-| R6 | JSON market metadata and legacy order storage | Medium | Потрібна DB для public prod |
+| R6 | JSON market metadata storage | Medium | Потрібна DB для public prod |
 | R7 | Circle passkey infra dependency | Low/Medium | Optional wallet path |
 | R8 | Key/env leakage | High | Mitigated by gitignore, still operationally sensitive |
 
@@ -122,13 +122,12 @@ Required before production:
 
 ## 5. JSON persistence
 
-`data/markets.json` is the active local metadata store. `data/orders.json` remains for legacy
-`/v1/orders` routes but is not the current CLOB UI path.
+`data/markets.json` is the active local metadata store.
 
 Risk:
 
 - Data loss on reset/deploy environment changes.
-- File write races for API-created markets or legacy orders.
+- File write races for API-created markets.
 - No audit trail.
 - No multi-instance support.
 
@@ -185,7 +184,6 @@ Current mitigations:
 Required before production:
 
 - Add tests around amount formatting and parse/format boundaries.
-- Avoid legacy `ARCT` variable names in code where possible.
 
 ## 8. Smart contract review points
 

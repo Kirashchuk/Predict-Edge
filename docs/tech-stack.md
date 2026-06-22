@@ -1,6 +1,6 @@
 # Технічний стек Predict-Edge
 
-Документ фіксує стек, який реально є в репозиторії зараз. Root package не запускає Next.js:
+Документ фіксує стек, який реально є в репозиторії зараз:
 він відповідає за Hardhat/deploy tooling, а application runtime винесений у `app/` і `server/`.
 
 ## Структура монорепо
@@ -11,7 +11,7 @@ predict-edge/
 ├── server/         # Hono API на Bun
 ├── contracts/      # Solidity contracts: market, AMM, CLOB
 ├── scripts/        # deploy, verify, env sync, wallet/reset utilities
-├── data/           # markets.json plus legacy orders.json
+├── data/           # markets.json
 ├── docs/           # архітектурна документація
 ├── artifacts/      # Hardhat output, gitignored
 ├── cache/          # Hardhat cache, gitignored
@@ -52,12 +52,12 @@ bun run lint
 | Runtime | Bun, `Bun.serve` |
 | Framework | Hono, `OpenAPIHono` |
 | API docs | `/openapi.json`, `/docs` через Scalar |
-| Routes | `/health`, `/v1/markets`, legacy `/v1/orders` |
+| Routes | `/health`, `/v1/markets`, `/docs`, `/openapi.json` |
 | Web3 | ethers v6 для server-side deploy market + AMM + CLOB |
 | Валідація | zod schemas у Hono routes |
 | Error model | `neverthrow` у create-market service |
 | Logging | pino |
-| Persistence | JSON files: `data/markets.json`; `data/orders.json` remains for legacy order routes |
+| Persistence | JSON file: `data/markets.json` for created market metadata |
 | Config | root `.env.local` + server `.env`, `API_PORT`, `CORS_ORIGINS`, `ARC_RPC_URL`, `PRIVATE_KEY` |
 | Docker | `server/Dockerfile` на `oven/bun` |
 
@@ -106,7 +106,7 @@ bun run build:app
 
 | File | Призначення |
 |---|---|
-| root `.env.local` | `PRIVATE_KEY`, `NEXT_PUBLIC_ALCHEMY_RPC_URL`, deployed `NEXT_PUBLIC_*` addresses |
+| root `.env.local` | `PRIVATE_KEY`, `DEPLOY_RPC_URL`, deployed `DEPLOY_*` addresses |
 | `app/.env.local` | `VITE_*` addresses and optional Circle credentials |
 | server `.env` | optional backend overrides such as `API_PORT`, `CORS_ORIGINS`, `ARC_RPC_URL` |
 
@@ -114,14 +114,14 @@ Deploy writes root `.env.local`. `scripts/sync-env.ts` maps root variables into 
 
 | Root | Frontend |
 |---|---|
-| `NEXT_PUBLIC_ALCHEMY_RPC_URL` | `VITE_ARC_RPC_URL` |
-| `NEXT_PUBLIC_MARKET_ADDRESS` | `VITE_MARKET_ADDRESS` |
-| `NEXT_PUBLIC_AMM_ADDRESS` | `VITE_AMM_ADDRESS` |
-| `NEXT_PUBLIC_CLOB_ADDRESS` | `VITE_CLOB_ADDRESS` |
-| `NEXT_PUBLIC_USDC_ADDRESS` | `VITE_USDC_ADDRESS` |
-| `NEXT_PUBLIC_OO_V2_ADDRESS` | `VITE_OO_V2_ADDRESS` |
-| `NEXT_PUBLIC_FINDER_ADDRESS` | `VITE_FINDER_ADDRESS` |
-| `NEXT_PUBLIC_TIMER_ADDRESS` | `VITE_TIMER_ADDRESS` |
+| `DEPLOY_RPC_URL` | `VITE_ARC_RPC_URL` |
+| `DEPLOY_MARKET_ADDRESS` | `VITE_MARKET_ADDRESS` |
+| `DEPLOY_AMM_ADDRESS` | `VITE_AMM_ADDRESS` |
+| `DEPLOY_CLOB_ADDRESS` | `VITE_CLOB_ADDRESS` |
+| `DEPLOY_USDC_ADDRESS` | `VITE_USDC_ADDRESS` |
+| `DEPLOY_OO_V2_ADDRESS` | `VITE_OO_V2_ADDRESS` |
+| `DEPLOY_FINDER_ADDRESS` | `VITE_FINDER_ADDRESS` |
+| `DEPLOY_TIMER_ADDRESS` | `VITE_TIMER_ADDRESS` |
 
 ## Реалізовані product features
 
@@ -136,7 +136,6 @@ Deploy writes root `.env.local`. `scripts/sync-env.ts` maps root variables into 
 
 ## Що не реалізовано
 
-- Немає Next.js runtime, Next API routes або `localhost:3000`.
 - Testnet keeper script exists as `bun run keeper`; production still needs monitoring and failure policy.
 - Немає Postgres/Drizzle/Redis/worker scheduler. Збереження зараз файлове.
 - Немає production auth/rate-limit для `POST /v1/markets`.

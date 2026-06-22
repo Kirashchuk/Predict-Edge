@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss';
 import tailwindcssAnimate from 'tailwindcss-animate';
 
-// Mirrors the Templars app theme system (HSL CSS variables, dark-first).
+// Predict-Edge theme system (HSL CSS variables, dark-first).
 export default {
   darkMode: ['class'],
   content: ['./index.html', './src/**/*.{ts,tsx}'],

@@ -10,7 +10,7 @@ flowchart TB
     Question["Market question exists"]
     Deploy["Deploy EventBasedPredictionMarket"]
     Init["initializeMarket()<br/>request UMA price"]
-    Seed["Deploy and seed AMM<br/>5 USDC initial liquidity"]
+    Seed["Deploy and seed AMM<br/>1 USDC initial liquidity"]
     DeployCLOB["Deploy CLOB for market"]
     Live["Market is live"]
 
@@ -92,8 +92,8 @@ sequenceDiagram
     API->>MKT: initializeMarket()
     MKT->>UMA: requestPrice + set callbacks
     API->>AMM: deploy AMM(market, 200 bps)
-    API->>USDC: approve 5 USDC seed
-    API->>AMM: initialize(5 USDC)
+    API->>USDC: approve 1 USDC seed
+    API->>AMM: initialize(1 USDC)
     AMM->>MKT: create YES + NO reserves
     API->>CLOB: deploy CLOB(market)
     API->>Store: prepend market metadata
@@ -237,7 +237,7 @@ sequenceDiagram
     Op->>Keeper: bun run keeper
     Keeper->>Env: load RPC, PRIVATE_KEY, interval
     Keeper->>Store: load user-created CLOB addresses
-    Keeper->>Env: load base NEXT_PUBLIC_CLOB_ADDRESS
+    Keeper->>Env: load base DEPLOY_CLOB_ADDRESS
     loop every KEEPER_INTERVAL_MS
         Keeper->>CLOB: getOpenOrders(YES, Buy/Sell)
         Keeper->>CLOB: getOrders(ids)

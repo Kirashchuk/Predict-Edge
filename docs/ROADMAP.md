@@ -69,7 +69,7 @@ Steps:
 
 1. Create or select EOA deployer.
 2. Put `PRIVATE_KEY` in root `.env.local`.
-3. Set RPC in `NEXT_PUBLIC_ALCHEMY_RPC_URL` or use fallback.
+3. Set RPC in `DEPLOY_RPC_URL` or use fallback.
 4. Fund address from [Circle faucet](https://faucet.circle.com/).
 
 Gate:
@@ -96,9 +96,9 @@ bun run sync-env
 
 Gate:
 
-- Root `.env.local` has deployed `NEXT_PUBLIC_*` addresses.
+- Root `.env.local` has deployed `DEPLOY_*` addresses.
 - `app/.env.local` has matching `VITE_*` addresses.
-- Verify script reports `priceRequested=true`, AMM initialized, reserves near `5/5 USDC`.
+- Verify script reports `priceRequested=true`, AMM initialized, reserves near `1/1 USDC`.
 
 Rollback:
 
@@ -184,7 +184,6 @@ Rollback:
 
 - `bun run reset` for markets.
 - Cancel CLOB orders on-chain if possible or redeploy a fresh testnet market/CLOB.
-- Clear `data/orders.json` only if testing legacy `/v1/orders`.
 
 ## P7. Hardening
 
@@ -197,7 +196,6 @@ Checklist:
 - [ ] Add auth and rate-limit to `POST /v1/markets`.
 - [ ] Add server-side quotas per user/IP/wallet.
 - [ ] Replace raw file writes with a DB or transactional store.
-- [ ] Remove legacy `ARCT` naming in code where it now means USDC.
 - [x] Fix `useClob.ts` viem typecheck path.
 - [x] Add tests for `OnChainLimitOrderBook` partial fills, cancellation, residual escrow and `matchOrders`.
 - [x] Implement testnet keeper/matcher script.
@@ -206,7 +204,6 @@ Checklist:
 - [ ] Add frontend tests for chain guard and amount formatting.
 - [ ] Add API tests for market/order validation.
 - [ ] Add CI for root, app, and server.
-- [ ] Reconcile legacy `/v1/orders` code with the current CLOB UI path.
 
 ## P8. Production redesign
 

@@ -54,7 +54,7 @@ export default function MarketDetail() {
       <div className="space-y-4">
         <BackLink />
         <div className="corner-markers border border-border bg-card p-10 text-center text-muted-foreground">
-          Market not found or AMM address unavailable. Run the deploy + <code>npm run sync-env</code>.
+          Market not found or AMM address unavailable. Run the deploy + <code>bun run sync-env</code>.
         </div>
       </div>
     );

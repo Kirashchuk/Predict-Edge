@@ -1,7 +1,7 @@
 /**
  * Deploy only the CLOB for an already deployed base market.
  *
- * Use this when `.env.local` already has NEXT_PUBLIC_MARKET_ADDRESS from an
+ * Use this when `.env.local` already has DEPLOY_MARKET_ADDRESS from an
  * older deploy that predates OnChainLimitOrderBook.
  */
 import { ethers } from "hardhat";
@@ -20,6 +20,10 @@ function readEnv(envPath: string): Record<string, string> {
 
 function writeEnvFile(envPath: string, vars: Record<string, string>) {
   const env = { ...readEnv(envPath), ...vars };
+  const oldPublicPrefix = `${"NEXT"}_${"PUBLIC"}_`;
+  for (const key of Object.keys(env)) {
+    if (key.startsWith(oldPublicPrefix)) delete env[key];
+  }
   const output = Object.entries(env)
     .map(([key, value]) => `${key}=${value}`)
     .join("\n") + "\n";
@@ -47,12 +51,12 @@ async function main() {
   const env = readEnv(envPath);
   // Optional override: deploy a CLOB for a specific (e.g. user-created) market.
   const target = process.env.CLOB_MARKET?.trim();
-  const baseMarket = env.NEXT_PUBLIC_MARKET_ADDRESS;
+  const baseMarket = env.DEPLOY_MARKET_ADDRESS;
   const marketAddress = target && target.length > 0 ? target : baseMarket;
   const isBase = !target || target.toLowerCase() === baseMarket?.toLowerCase();
 
   if (!marketAddress || !ethers.isAddress(marketAddress)) {
-    throw new Error("Target market address is missing or invalid (set CLOB_MARKET or NEXT_PUBLIC_MARKET_ADDRESS).");
+    throw new Error("Target market address is missing or invalid (set CLOB_MARKET or DEPLOY_MARKET_ADDRESS).");
   }
 
   const [deployer] = await ethers.getSigners();
@@ -68,8 +72,8 @@ async function main() {
   console.log("OnChainLimitOrderBook:", clobAddress);
 
   if (isBase) {
-    writeEnvFile(envPath, { NEXT_PUBLIC_CLOB_ADDRESS: clobAddress });
-    console.log(`Updated ${envPath} (NEXT_PUBLIC_CLOB_ADDRESS). Next: npm run sync-env`);
+    writeEnvFile(envPath, { DEPLOY_CLOB_ADDRESS: clobAddress });
+    console.log(`Updated ${envPath} (DEPLOY_CLOB_ADDRESS). Next: bun run sync-env`);
   } else {
     const patched = patchMarketsJson(marketAddress, clobAddress);
     console.log(

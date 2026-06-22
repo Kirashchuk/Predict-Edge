@@ -25,7 +25,7 @@
 4. **Application runtime:** Vite React SPA в `app/` + Bun/Hono API в `server/`.
 5. **Market creation:** `POST /v1/markets` деплоїть market + AMM + CLOB серверним deployer key і зберігає metadata в `data/markets.json`.
 
-Це замінює попередній test-token варіант із mintable ARCT як колатералем. ARCT більше не є актуальним торговим collateral у deploy script.
+Колатераль актуального deploy - Arc Testnet USDC system ERC-20.
 
 ## D1. Resolution mechanism
 
@@ -92,7 +92,7 @@ Important distinction:
 Consequences:
 
 - Немає free mint collateral. Deployer і users мають отримати USDC з Circle faucet.
-- Market seed у deploy script малий: `5 USDC`, reward `0.1 USDC`, bond `1 USDC`.
+- Market seed у deploy script малий: `1 USDC`, reward `0.1 USDC`, bond `1 USDC`.
 - Production migration не потребує заміни fake collateral, але все ще потребує реального oracle/governance hardening.
 
 ## D4. Application runtime
@@ -109,12 +109,12 @@ Backend:
 
 - `server/` на Hono + Bun.
 - `/v1/markets` для user-created markets і server-side deploy.
-- `/v1/orders` legacy API ще існує, але поточний UI для limit orders використовує `OnChainLimitOrderBook`.
+- Limit orders проходять через `OnChainLimitOrderBook`; сервер не зберігає order book у JSON.
 - `/docs` і `/openapi.json` генеруються з OpenAPI routes.
 
 Rejected:
 
-- Keep Next.js App Router: не відповідає Templars stack і створює інший backend model.
+- Merge frontend and API into one runtime: rejected because current ownership is clearer with Vite SPA + Bun/Hono API.
 
 ## D5. Wallet strategy
 
@@ -175,7 +175,7 @@ What is simple now:
 
 - Reproducible testnet deploy from one Hardhat script.
 - Vite/Hono split mirrors the current codebase and README.
-- USDC-only product surface is clearer for users than ARCT test collateral.
+- USDC-only product surface is clearer for users than a mintable test-token collateral.
 - CLOB limit orders are escrowed on-chain instead of being only JSON metadata.
 
 What must be revisited before production:
@@ -204,6 +204,6 @@ What must be revisited before production:
 | Proposer reward | 0.1 USDC |
 | Proposer bond | 1 USDC |
 | AMM fee | 200 bps |
-| Seed liquidity | 5 USDC |
+| Seed liquidity | 1 USDC |
 | CLOB price scale | `1e18` |
 | Resolution values | `1e18` YES, `0` NO, `5e17` Undetermined |

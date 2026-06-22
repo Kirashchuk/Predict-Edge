@@ -1,9 +1,9 @@
 /**
  * Propagate deployed contract addresses from the repo-root .env.local
- * (written by the Hardhat deploy script, using NEXT_PUBLIC_* names) into
+ * (written by the Hardhat deploy script, using DEPLOY_* names) into
  * app/.env.local with the VITE_ prefix the Vite frontend expects.
  *
- * Usage: node --experimental-strip-types scripts/sync-env.ts
+ * Usage: bun run sync-env
  * SPDX-License-Identifier: Apache-2.0
  */
 import * as fs from 'fs';
@@ -23,16 +23,19 @@ function readEnv(p: string): Record<string, string> {
 
 const root = readEnv(path.join(ROOT, '.env.local'));
 
+const pick = (name: string, fallback = ''): string =>
+  root[`DEPLOY_${name}`] || fallback;
+
 const map: Record<string, string> = {
-  VITE_ARC_RPC_URL: root.NEXT_PUBLIC_ALCHEMY_RPC_URL || 'https://rpc.testnet.arc.network',
+  VITE_ARC_RPC_URL: root.DEPLOY_RPC_URL || 'https://rpc.testnet.arc.network',
   VITE_API_URL: 'http://localhost:8787',
-  VITE_MARKET_ADDRESS: root.NEXT_PUBLIC_MARKET_ADDRESS ?? '',
-  VITE_AMM_ADDRESS: root.NEXT_PUBLIC_AMM_ADDRESS ?? '',
-  VITE_CLOB_ADDRESS: root.NEXT_PUBLIC_CLOB_ADDRESS ?? '',
-  VITE_USDC_ADDRESS: root.NEXT_PUBLIC_USDC_ADDRESS ?? '0x3600000000000000000000000000000000000000',
-  VITE_OO_V2_ADDRESS: root.NEXT_PUBLIC_OO_V2_ADDRESS ?? '',
-  VITE_FINDER_ADDRESS: root.NEXT_PUBLIC_FINDER_ADDRESS ?? '',
-  VITE_TIMER_ADDRESS: root.NEXT_PUBLIC_TIMER_ADDRESS ?? '',
+  VITE_MARKET_ADDRESS: pick('MARKET_ADDRESS'),
+  VITE_AMM_ADDRESS: pick('AMM_ADDRESS'),
+  VITE_CLOB_ADDRESS: pick('CLOB_ADDRESS'),
+  VITE_USDC_ADDRESS: pick('USDC_ADDRESS', '0x3600000000000000000000000000000000000000'),
+  VITE_OO_V2_ADDRESS: pick('OO_V2_ADDRESS'),
+  VITE_FINDER_ADDRESS: pick('FINDER_ADDRESS'),
+  VITE_TIMER_ADDRESS: pick('TIMER_ADDRESS'),
 };
 
 const appEnvPath = path.join(ROOT, 'app', '.env.local');

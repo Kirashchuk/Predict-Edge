@@ -12,7 +12,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Templar Design System — Nado-inspired brutalist (ported from Templars Trade) */
+/* Predict-Edge design system: dark, high-contrast, trading-focused. */
 
 @layer base {
   :root {

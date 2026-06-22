@@ -5,10 +5,9 @@
 > with an **AMM** + **on-chain CLOB limit orders**, resolved trustlessly by
 > [UMA's Optimistic Oracle V2](https://docs.uma.xyz/protocol-overview/how-does-umas-oracle-work).
 
-Originally based on Circle's [arc-prediction-markets](https://github.com/circlefin/arc-prediction-markets),
-**re-platformed onto the Templars Trade stack** (Vite + React + shadcn frontend, Bun/Hono backend,
-Hardhat contracts) and extended with USDC collateral, an AMM, an on-chain CLOB, a
-portfolio page, dual-wallet support and a mobile PWA.
+Built as a Bun-first monorepo: Vite + React frontend, Bun/Hono backend, Hardhat
+contracts, USDC collateral, an AMM, an on-chain CLOB, a portfolio page,
+dual-wallet support, and a mobile PWA.
 
 ---
 
@@ -24,12 +23,12 @@ portfolio page, dual-wallet support and a mobile PWA.
   paymaster). Every transaction is **forced onto Arc Testnet** (chain `5042002`) so nothing can hit
   mainnet by accident.
 - **Portfolio, charts, PWA** — `/portfolio` aggregates positions across live markets; live price
-  charts (lightweight-charts) + per-card sparklines; installable mobile PWA in the brutalist Templar
+  charts (lightweight-charts) + per-card sparklines; installable mobile PWA in the brutalist Predict-Edge
   visual identity.
 - **Multi-market** — a base live BTC market + user-created on-chain markets + a categorized grid of demo markets; anyone
   can **create new on-chain markets** from the UI.
 
-## Tech stack (Templars Trade)
+## Tech stack
 
 | Layer | Stack |
 |---|---|
@@ -39,8 +38,9 @@ portfolio page, dual-wallet support and a mobile PWA.
 | **Tooling** | Bun, ESLint 9 flat + Prettier, Docker + nginx |
 
 Architecture decisions are documented in [`docs/`](docs/) — see
-[ADR-001](docs/ADR-001-architecture.md) (core architecture), [ADR-002](docs/ADR-002-templars-stack.md)
-(the Templars re-platform), and [tech-stack.md](docs/tech-stack.md).
+[ADR-001](docs/ADR-001-architecture.md) (core architecture),
+[ADR-002](docs/ADR-002-bun-vite-stack.md) (Bun/Vite runtime split), and
+[tech-stack.md](docs/tech-stack.md).
 
 ## Project structure
 
@@ -56,10 +56,10 @@ predict-edge/
 │       │   └── wallet/          # dual-wallet (MetaMask + Circle Passkey), chain guard
 │       └── shared/{ui,lib}      # shadcn primitives + utils, contracts (abis/addresses), chain
 ├── server/         # Hono-on-Bun backend
-│   └── src/{index.ts, app.ts, core/, modules/{markets,orders}}
+│   └── src/{index.ts, app.ts, core/, modules/markets}
 ├── contracts/      # EventBasedPredictionMarket.sol, PredictionMarketAMM.sol, OnChainLimitOrderBook.sol
 ├── scripts/        # deploy.ts, verify-deploy.ts, generate-wallet.ts, sync-env.ts, reset-markets.ts
-├── data/           # markets.json (user markets), orders.json (legacy file-backed orders)
+├── data/           # markets.json (user-created market metadata)
 └── docs/           # ADRs, architecture diagram, contract map, deployment plan, risks, addresses
 ```
 
@@ -86,7 +86,7 @@ cd app && bun install && cd ..
 cd server && bun install && cd ..
 
 # 3. Deployer wallet + env (testnet only — never a mainnet key)
-node --experimental-strip-types scripts/generate-wallet.ts   # writes PRIVATE_KEY to .env.local
+bun run generate-wallet      # writes PRIVATE_KEY to .env.local
 #    → fund the printed address with USDC from https://faucet.circle.com/
 
 # 4. Compile + deploy contracts to Arc Testnet
@@ -112,8 +112,7 @@ The frontend dev server proxies `/v1/*` to the backend.
 - **AMM depth** — the depth ladder is computed from the live pool reserves using the exact
   contract math, so it reflects **real on-chain liquidity** (the price you'd get at increasing size).
 - **Limit orders** — placed on-chain in `OnChainLimitOrderBook`. Buy orders escrow USDC; sell orders
-  escrow YES/NO tokens; orders can be cancelled, directly filled, or matched when crossed. The old
-  `/v1/orders` API remains as a legacy file-backed path, but current UI uses the CLOB contract.
+  escrow YES/NO tokens; orders can be cancelled, directly filled, or matched when crossed.
 - **Resolution** — UMA OO V2 in event-based mode. Anyone can `proposePrice`
   (`1e18`=YES, `0`=NO, `5e17`=Undetermined) with a bond; after the liveness window anyone can
   `settle` (permissionless). On testnet a Testable `Timer` lets settle advance past liveness without
@@ -127,7 +126,7 @@ Secrets live in `.env.local` (git-ignored); only `.env.example` templates are co
 
 | File | Purpose |
 |---|---|
-| **root `.env.local`** | `PRIVATE_KEY` (deployer), RPC, and `NEXT_PUBLIC_*` addresses (written by `bun run deploy`). The backend reuses this file. |
+| **root `.env.local`** | `PRIVATE_KEY` (deployer), `DEPLOY_RPC_URL`, and `DEPLOY_*` addresses (written by `bun run deploy`). The backend reuses this file. |
 | **`app/.env.local`** | `VITE_*` addresses (written by `bun run sync-env`) + optional `VITE_CIRCLE_CLIENT_KEY/URL` for the Passkey wallet. |
 
 Collateral is the fixed Arc USDC system address `0x3600…0000` (6 decimals) — configured by default,
@@ -139,7 +138,7 @@ no need to set it manually.
 |---|---|
 | `bun run compile` | Compile the Solidity contracts (Hardhat) |
 | `bun run deploy` | Deploy UMA stack + market + AMM + CLOB (USDC) to Arc Testnet |
-| `bun run deploy:clob` | Deploy only a CLOB for the current `NEXT_PUBLIC_MARKET_ADDRESS` |
+| `bun run deploy:clob` | Deploy only a CLOB for the current `DEPLOY_MARKET_ADDRESS` |
 | `bun run verify-deploy` | Read back on-chain state (reserves, prices, balances) |
 | `bun run sync-env` | Copy deployed addresses into `app/.env.local` as `VITE_*` |
 | `bun run keeper` | Scan configured CLOBs and auto-match crossed bid/ask orders |
@@ -151,7 +150,6 @@ no need to set it manually.
 ## API (Hono, `/v1`)
 
 - `GET /v1/markets` · `POST /v1/markets` — list / create on-chain markets.
-- `GET /v1/orders?market=` · `POST /v1/orders` · `PATCH /v1/orders/{id}` — legacy file-backed orders.
 - `GET /health` · `GET /docs` · `GET /openapi.json`.
 
 ## Deployed contracts

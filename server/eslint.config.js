@@ -1,4 +1,4 @@
-// ESLint 9 flat config — mirrors the Templars api style: prettier owns
+// ESLint 9 flat config: prettier owns
 // formatting, no-explicit-any relaxed, empty catch allowed.
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';

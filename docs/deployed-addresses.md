@@ -4,6 +4,7 @@
 - **Chain ID:** `5042002`
 - **Explorer:** [testnet.arcscan.app](https://testnet.arcscan.app)
 - **Deployer:** `0x72CA27CC843373671DaA8F4876C36aa84ee74A3E`
+- **Last verified:** `2026-06-22`
 
 These are public testnet addresses. The deployer private key must remain only in local `.env.local`.
 
@@ -19,9 +20,9 @@ Arc also represents native gas balance as USDC with 18 decimals. Contract transf
 
 | Contract | Address |
 |---|---|
-| `EventBasedPredictionMarket` (`BTC100K`) | [`0x45f03Ee08C61A1319Ee672E7312127e37CC894af`](https://testnet.arcscan.app/address/0x45f03Ee08C61A1319Ee672E7312127e37CC894af) |
-| `PredictionMarketAMM` | [`0xA4E18fFf8E551A81a54DD1d9F45c7Bb7e396d690`](https://testnet.arcscan.app/address/0xA4E18fFf8E551A81a54DD1d9F45c7Bb7e396d690) |
-| `OnChainLimitOrderBook` | [`0x9905724FFb9ec9f11172b9C373fBa836Ed743459`](https://testnet.arcscan.app/address/0x9905724FFb9ec9f11172b9C373fBa836Ed743459) |
+| `EventBasedPredictionMarket` (`BTC100K`) | [`0xD606e05095Bb3B3Eda4d4253bba641eb3441AA4b`](https://testnet.arcscan.app/address/0xD606e05095Bb3B3Eda4d4253bba641eb3441AA4b) |
+| `PredictionMarketAMM` | [`0x10542230cedcC6Da7F13e3d213617F908df9aA3A`](https://testnet.arcscan.app/address/0x10542230cedcC6Da7F13e3d213617F908df9aA3A) |
+| `OnChainLimitOrderBook` | [`0x350B3C2271BAD7ddDB0d610b43c3ad2f2cD95998`](https://testnet.arcscan.app/address/0x350B3C2271BAD7ddDB0d610b43c3ad2f2cD95998) |
 
 Question:
 
@@ -33,34 +34,31 @@ Will Bitcoin exceed $100,000 before June 1, 2026?
 
 | Token | Address |
 |---|---|
-| Long token, PLT / YES | [`0xd33813B05D9d718BD7A0E07F7C9Fb68c12B4Ed07`](https://testnet.arcscan.app/address/0xd33813B05D9d718BD7A0E07F7C9Fb68c12B4Ed07) |
-| Short token, PST / NO | [`0x9b1EB696Ed283e143C2f77DDad93951fF06220cB`](https://testnet.arcscan.app/address/0x9b1EB696Ed283e143C2f77DDad93951fF06220cB) |
+| Long token, PLT / YES | [`0x39473B6A8Cc08C2a90F9d07dcAF84D194FCef900`](https://testnet.arcscan.app/address/0x39473B6A8Cc08C2a90F9d07dcAF84D194FCef900) |
+| Short token, PST / NO | [`0x53E47c473b518D04Fa193fCaf9678d876895d62A`](https://testnet.arcscan.app/address/0x53E47c473b518D04Fa193fCaf9678d876895d62A) |
 
 ## UMA infrastructure
 
 | Contract | Address |
 |---|---|
-| Timer | [`0x9b29D73ef5889aa1C1DF98212EFBF41BCB513E5b`](https://testnet.arcscan.app/address/0x9b29D73ef5889aa1C1DF98212EFBF41BCB513E5b) |
-| Finder | [`0xFD3608a755D33cCFeb85B71840615f74eeA6CbF5`](https://testnet.arcscan.app/address/0xFD3608a755D33cCFeb85B71840615f74eeA6CbF5) |
-| IdentifierWhitelist | [`0x6eFcf1e735913bB4DE1f558EF39A69c71d18919d`](https://testnet.arcscan.app/address/0x6eFcf1e735913bB4DE1f558EF39A69c71d18919d) |
-| AddressWhitelist | [`0xE9264DEbA6F9530d5dBe3D275C5306727AC81832`](https://testnet.arcscan.app/address/0xE9264DEbA6F9530d5dBe3D275C5306727AC81832) |
-| Store | [`0x8B84F612eb00E2aB69C71bBaF78366bF6a22DE83`](https://testnet.arcscan.app/address/0x8B84F612eb00E2aB69C71bBaF78366bF6a22DE83) |
-| MockOracleAncillary | [`0xB129B9a47F695B003C1202A15ddCc758831C4289`](https://testnet.arcscan.app/address/0xB129B9a47F695B003C1202A15ddCc758831C4289) |
-| OptimisticOracleV2 | [`0xFABb7DcaAdD1275E183A33b19eb6b96E96F83EC7`](https://testnet.arcscan.app/address/0xFABb7DcaAdD1275E183A33b19eb6b96E96F83EC7) |
+| Timer | [`0xEC0E461FB8F3bC3Ceb48836bcC00E103e92909F8`](https://testnet.arcscan.app/address/0xEC0E461FB8F3bC3Ceb48836bcC00E103e92909F8) |
+| Finder | [`0x4F7e4074133AC90F548f7EB0b10b102f00037f7A`](https://testnet.arcscan.app/address/0x4F7e4074133AC90F548f7EB0b10b102f00037f7A) |
+| IdentifierWhitelist | [`0x5b0971726Cf6648071B4922d879264D0666453E9`](https://testnet.arcscan.app/address/0x5b0971726Cf6648071B4922d879264D0666453E9) |
+| AddressWhitelist | [`0x8A5B23dDfD08A5132327F7A1b9c8763698966375`](https://testnet.arcscan.app/address/0x8A5B23dDfD08A5132327F7A1b9c8763698966375) |
+| Store | [`0x679F7bEAF7372f996366D579D7De443Fe2c4DFf0`](https://testnet.arcscan.app/address/0x679F7bEAF7372f996366D579D7De443Fe2c4DFf0) |
+| MockOracleAncillary | [`0x4FA6596d98F526B978014b6368E4365fAa22A743`](https://testnet.arcscan.app/address/0x4FA6596d98F526B978014b6368E4365fAa22A743) |
+| OptimisticOracleV2 | [`0x880ACE2246c032BfBCb0b5daB8747fFBB87E3273`](https://testnet.arcscan.app/address/0x880ACE2246c032BfBCb0b5daB8747fFBB87E3273) |
 
 ## User-created markets in local data
 
 `data/markets.json` can contain additional markets created through `POST /v1/markets`. At the time of this documentation pass, local data contains:
 
-| Market | Market address | AMM address |
-|---|---|---|
-| `Will Ethereum close above 10000 USD in 2026?` | [`0xd4fba19137E43dbc5702C27e114fd16f6702a973`](https://testnet.arcscan.app/address/0xd4fba19137E43dbc5702C27e114fd16f6702a973) | [`0x2a07F0978145eacf04eF51c322Af56981eff19ff`](https://testnet.arcscan.app/address/0x2a07F0978145eacf04eF51c322Af56981eff19ff) |
+| Market | Market address | AMM address | CLOB address |
+|---|---|---|---|
+| `Will!` | [`0x4cb387424d449e806E1888e4748023056104c55f`](https://testnet.arcscan.app/address/0x4cb387424d449e806E1888e4748023056104c55f) | [`0xa663FBc23311dd5138AEd9C87AcecEDAA3407C39`](https://testnet.arcscan.app/address/0xa663FBc23311dd5138AEd9C87AcecEDAA3407C39) | [`0x057dea9A6eF23C43E53783f9b28FE9B81D0A1461`](https://testnet.arcscan.app/address/0x057dea9A6eF23C43E53783f9b28FE9B81D0A1461) |
+| `Will Ethereum close above 10000 USD in 2026?` | [`0xd4fba19137E43dbc5702C27e114fd16f6702a973`](https://testnet.arcscan.app/address/0xd4fba19137E43dbc5702C27e114fd16f6702a973) | [`0x2a07F0978145eacf04eF51c322Af56981eff19ff`](https://testnet.arcscan.app/address/0x2a07F0978145eacf04eF51c322Af56981eff19ff) | [`0xA2e0ad9b89b79BB4694AA753d3Fc261D17c9982e`](https://testnet.arcscan.app/address/0xA2e0ad9b89b79BB4694AA753d3Fc261D17c9982e) |
 
 This local list is not canonical for every checkout. It is file-backed testnet state and can be reset with `bun run reset`.
-
-The current code deploys `OnChainLimitOrderBook` for newly created markets, but the local
-`data/markets.json` entry above does not yet include `clobAddress`. Create a new market or redeploy
-to get CLOB metadata.
 
 ## Verified state
 
@@ -77,25 +75,25 @@ Expected state for the base market:
 | `priceRequested` | `true` |
 | `receivedSettlementPrice` | `false` until resolution |
 | AMM `initialized` | `true` |
-| AMM reserves | around `YES=5`, `NO=5` USDC |
+| AMM reserves | around `YES=1`, `NO=1` USDC |
 | Prices | around `0.5`, `0.5` |
 | Fee | `200` bps |
 | Collateral | USDC ERC-20, 6 decimals |
-| CLOB | `0x9905724FFb9ec9f11172b9C373fBa836Ed743459` |
+| CLOB | `0x350B3C2271BAD7ddDB0d610b43c3ad2f2cD95998` |
 
 ## Env mapping
 
 Root `.env.local` should contain:
 
 ```ini
-NEXT_PUBLIC_MARKET_ADDRESS=0x45f03Ee08C61A1319Ee672E7312127e37CC894af
-NEXT_PUBLIC_AMM_ADDRESS=0xA4E18fFf8E551A81a54DD1d9F45c7Bb7e396d690
-NEXT_PUBLIC_CLOB_ADDRESS=0x9905724FFb9ec9f11172b9C373fBa836Ed743459
-NEXT_PUBLIC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
-NEXT_PUBLIC_OO_V2_ADDRESS=0xFABb7DcaAdD1275E183A33b19eb6b96E96F83EC7
-NEXT_PUBLIC_FINDER_ADDRESS=0xFD3608a755D33cCFeb85B71840615f74eeA6CbF5
-NEXT_PUBLIC_TIMER_ADDRESS=0x9b29D73ef5889aa1C1DF98212EFBF41BCB513E5b
-NEXT_PUBLIC_MOCK_ORACLE_ADDRESS=0xB129B9a47F695B003C1202A15ddCc758831C4289
+DEPLOY_MARKET_ADDRESS=0xD606e05095Bb3B3Eda4d4253bba641eb3441AA4b
+DEPLOY_AMM_ADDRESS=0x10542230cedcC6Da7F13e3d213617F908df9aA3A
+DEPLOY_CLOB_ADDRESS=0x350B3C2271BAD7ddDB0d610b43c3ad2f2cD95998
+DEPLOY_USDC_ADDRESS=0x3600000000000000000000000000000000000000
+DEPLOY_OO_V2_ADDRESS=0x880ACE2246c032BfBCb0b5daB8747fFBB87E3273
+DEPLOY_FINDER_ADDRESS=0x4F7e4074133AC90F548f7EB0b10b102f00037f7A
+DEPLOY_TIMER_ADDRESS=0xEC0E461FB8F3bC3Ceb48836bcC00E103e92909F8
+DEPLOY_MOCK_ORACLE_ADDRESS=0x4FA6596d98F526B978014b6368E4365fAa22A743
 ```
 
 Then run `bun run sync-env` so `app/.env.local` receives the matching `VITE_*` values.

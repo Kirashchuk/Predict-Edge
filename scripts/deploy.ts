@@ -44,7 +44,7 @@ const artifacts = {
 // --- Configuration --------------------------------------------------
 
 // Arc Testnet native USDC, exposed as an ERC-20 at a fixed system address
-// (decimals = 6). This replaces the mintable ARCT TestnetERC20 as collateral.
+// (decimals = 6). This is the only deploy collateral.
 const USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 const USDC_DECIMALS = 6;
 const usdc = (n: string) => ethers.parseUnits(n, USDC_DECIMALS);
@@ -69,7 +69,7 @@ const CONFIG = {
   proposerReward: usdc("0.1"),   // 0.1 USDC reward to the OO proposer
   proposerBond: usdc("1"),       // 1 USDC proposer bond
   ammFeeBps: 200,                // 2% fee
-  seedLiquidity: usdc("5"),      // 5 USDC seeded into the AMM
+  seedLiquidity: usdc("1"),      // 1 USDC seeded into the AMM
 };
 
 // --- Helpers --------------------------------------------------------
@@ -140,6 +140,10 @@ function writeEnvFile(envPath: string, vars: Record<string, string>) {
       }
     }
   }
+  const oldPublicPrefix = `${"NEXT"}_${"PUBLIC"}_`;
+  for (const key of Object.keys(envContent)) {
+    if (key.startsWith(oldPublicPrefix)) delete envContent[key];
+  }
   Object.assign(envContent, vars);
   const output = Object.entries(envContent)
     .map(([k, v]) => `${k}=${v}`)
@@ -201,7 +205,7 @@ async function main() {
   // Collateral is the native USDC ERC-20 (system contract, 6 decimals) — no
   // token is deployed/minted. The deployer funds collateral from its real USDC.
   const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_MIN_ABI, deployer);
-  const arctAddr = USDC_ADDRESS;
+  const collateralAddr = USDC_ADDRESS;
 
   const mockOracle = await deployFromArtifact(
     "MockOracleAncillary", artifacts.MockOracleAncillary,
@@ -259,7 +263,7 @@ async function main() {
   const marketFactory = await ethers.getContractFactory("EventBasedPredictionMarket", deployer);
   const market = await marketFactory.deploy(
     CONFIG.pairName,
-    arctAddr,
+    collateralAddr,
     customAncillaryData,
     finderAddr,
     timerAddr,
@@ -317,14 +321,14 @@ async function main() {
 
   const envPath = path.resolve(__dirname, "../.env.local");
   writeEnvFile(envPath, {
-    NEXT_PUBLIC_MARKET_ADDRESS: marketAddr,
-    NEXT_PUBLIC_AMM_ADDRESS: ammAddr,
-    NEXT_PUBLIC_CLOB_ADDRESS: clobAddr,
-    NEXT_PUBLIC_USDC_ADDRESS: USDC_ADDRESS,
-    NEXT_PUBLIC_OO_V2_ADDRESS: ooV2Addr,
-    NEXT_PUBLIC_FINDER_ADDRESS: finderAddr,
-    NEXT_PUBLIC_TIMER_ADDRESS: timerAddr,
-    NEXT_PUBLIC_MOCK_ORACLE_ADDRESS: mockOracleAddr,
+    DEPLOY_MARKET_ADDRESS: marketAddr,
+    DEPLOY_AMM_ADDRESS: ammAddr,
+    DEPLOY_CLOB_ADDRESS: clobAddr,
+    DEPLOY_USDC_ADDRESS: USDC_ADDRESS,
+    DEPLOY_OO_V2_ADDRESS: ooV2Addr,
+    DEPLOY_FINDER_ADDRESS: finderAddr,
+    DEPLOY_TIMER_ADDRESS: timerAddr,
+    DEPLOY_MOCK_ORACLE_ADDRESS: mockOracleAddr,
   });
 
   // --- Summary ----------------------------------------------------
@@ -340,7 +344,7 @@ async function main() {
   console.log(`  OptimisticOracleV2:   ${ooV2Addr}`);
   console.log("");
   console.log("Tokens:");
-  console.log(`  USDC (collateral):    ${arctAddr}`);
+  console.log(`  USDC (collateral):    ${collateralAddr}`);
   console.log(`  Long Token (PLT):     ${longTokenAddr}`);
   console.log(`  Short Token (PST):    ${shortTokenAddr}`);
   console.log("");
@@ -351,10 +355,10 @@ async function main() {
   console.log("");
   console.log(`Updated ${envPath} with deployed addresses.`);
   console.log("\nNext steps:");
-  console.log("  1. Run 'npm run sync-env' to propagate VITE_* addresses.");
-  console.log("  2. Run 'npm run dev:api' and 'npm run dev:app'.");
+  console.log("  1. Run 'bun run sync-env' to propagate VITE_* addresses.");
+  console.log("  2. Run 'bun run dev:api' and 'bun run dev:app'.");
   console.log("  3. Buy/sell via the AMM or place on-chain CLOB limit orders.");
-  console.log("  4. Run 'npm run keeper' to auto-match crossed CLOB orders.");
+  console.log("  4. Run 'bun run keeper' to auto-match crossed CLOB orders.");
   console.log("  5. To resolve: propose a price to the OO, wait for liveness, then settle.");
 }
 

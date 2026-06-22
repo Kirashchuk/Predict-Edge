@@ -18,7 +18,7 @@ graph TB
         App["Vite React SPA"]
         Api["Bun/Hono API"]
         Contracts["Prediction market contracts<br/>UMA OO V2 + AMM + CLOB"]
-        Data["JSON data stores<br/>market metadata, legacy orders"]
+        Data["JSON data store<br/>market metadata"]
     end
 
     User --> App
@@ -48,9 +48,8 @@ graph TB
     subgraph Api["server/ on Bun"]
         Hono["OpenAPIHono app"]
         Markets["/v1/markets<br/>list + create market"]
-        Orders["/v1/orders<br/>legacy file-backed orders"]
         Docs["/docs + /openapi.json"]
-        Stores["data/markets.json<br/>data/orders.json"]
+        Stores["data/markets.json"]
     end
 
     subgraph Chain["Arc Testnet"]
@@ -66,12 +65,9 @@ graph TB
     UI --> Wallet
     UI --> Query
     Query --> Markets
-    Query --> Orders
     Hono --> Markets
-    Hono --> Orders
     Hono --> Docs
     Markets --> Stores
-    Orders --> Stores
     Markets -->|ethers v6 deploy| Market
     Markets -->|ethers v6 deploy| AMM
     Markets -->|ethers v6 deploy| CLOB
@@ -144,12 +140,12 @@ sequenceDiagram
     HH->>MKT: initializeMarket()
     MKT->>UMA: requestPrice + setEventBased + callbacks
     HH->>AMM: deploy AMM(market, 200 bps)
-    HH->>USDC: approve AMM for 5 USDC
-    HH->>AMM: initialize(5 USDC)
-    AMM->>MKT: create(5 USDC)
+    HH->>USDC: approve AMM for 1 USDC
+    HH->>AMM: initialize(1 USDC)
+    AMM->>MKT: create(1 USDC)
     MKT-->>AMM: mint PLT + PST reserves
     HH->>CLOB: deploy CLOB(market)
-    HH->>Env: write NEXT_PUBLIC_* addresses
+    HH->>Env: write DEPLOY_* addresses
 ```
 
 ## Sequence: run app and API locally
@@ -211,7 +207,7 @@ sequenceDiagram
     Api->>Chain: check USDC balance
     Api->>Chain: deploy EventBasedPredictionMarket
     Api->>Chain: approve reward + initializeMarket
-    Api->>Chain: deploy AMM + seed 5 USDC
+    Api->>Chain: deploy AMM + seed 1 USDC
     Api->>Store: prepend market metadata
     Api-->>Dialog: { success: true, market }
 ```

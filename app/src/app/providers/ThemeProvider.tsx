@@ -6,7 +6,7 @@ const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
   toggle: () => {},
 });
 
-// Dark-first, mirroring the Templars app. Persists choice to localStorage.
+// Dark-first theme persisted to localStorage.
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     try {

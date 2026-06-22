@@ -1,4 +1,4 @@
-# Hono-on-Bun backend (mirrors Templars api Dockerfile shape)
+# Hono-on-Bun backend.
 FROM oven/bun:1.3.5-alpine AS base
 WORKDIR /app
 
