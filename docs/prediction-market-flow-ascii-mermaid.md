@@ -223,6 +223,36 @@ sequenceDiagram
     MKT->>H: return USDC by final outcome
 ```
 
+## Keeper Auto-Match Flow
+
+```mermaid
+sequenceDiagram
+    actor Op as Operator
+    participant Keeper as scripts/keeper.ts
+    participant Env as .env.local + .env
+    participant Store as data/markets.json
+    participant CLOB as OnChainLimitOrderBook
+    participant Chain as Arc Testnet
+
+    Op->>Keeper: bun run keeper
+    Keeper->>Env: load RPC, PRIVATE_KEY, interval
+    Keeper->>Store: load user-created CLOB addresses
+    Keeper->>Env: load base NEXT_PUBLIC_CLOB_ADDRESS
+    loop every KEEPER_INTERVAL_MS
+        Keeper->>CLOB: getOpenOrders(YES, Buy/Sell)
+        Keeper->>CLOB: getOrders(ids)
+        Keeper->>CLOB: getOpenOrders(NO, Buy/Sell)
+        Keeper->>CLOB: getOrders(ids)
+        alt best bid >= best ask
+            Keeper->>Chain: sign and submit matchOrders(bid, ask, 0)
+            Chain->>CLOB: execute escrowed match
+            CLOB-->>Keeper: tx mined
+        else no crossed orders
+            Keeper-->>Op: wait for next tick
+        end
+    end
+```
+
 ## Position Value Flow
 
 ```mermaid

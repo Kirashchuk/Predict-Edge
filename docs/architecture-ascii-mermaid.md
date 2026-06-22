@@ -16,7 +16,8 @@ flowchart TB
         App["app/<br/>Vite React SPA + PWA"]
         Api["server/<br/>Bun + Hono API"]
         Data["data/<br/>markets.json + legacy orders.json"]
-        Scripts["scripts/<br/>Hardhat deploy + keeper + env sync"]
+        Scripts["scripts/<br/>Bun scripts + Hardhat deploy<br/>keeper + env sync"]
+        Launch[".claude/launch.json<br/>Codex app launch profile"]
     end
 
     subgraph Arc["Arc Testnet<br/>chainId 5042002"]
@@ -46,6 +47,8 @@ flowchart TB
     Api -->|ethers v6 deploy| AMM
     Api -->|ethers v6 deploy| CLOB
     Operator --> Scripts
+    Operator --> Launch
+    Launch -->|bun run dev:app| App
     Scripts -->|deploy and verify| Market
     Scripts -->|deploy and verify| AMM
     Scripts -->|deploy and verify| CLOB
@@ -199,6 +202,9 @@ sequenceDiagram
     participant Env as .env.local
     participant Sync as scripts/sync-env.ts
     participant AppEnv as app/.env.local
+    participant Api as Bun Hono dev server
+    participant Launch as .claude/launch.json
+    participant Vite as Vite dev server
 
     Op->>Deploy: bun run deploy
     Deploy->>UMA: deploy Timer, Finder, whitelists, Store, MockOracle, OO V2
@@ -217,6 +223,11 @@ sequenceDiagram
     Deploy->>Env: write NEXT_PUBLIC_* addresses
     Op->>Sync: bun run sync-env
     Sync->>AppEnv: write VITE_* addresses
+    Op->>Api: bun run dev:api
+    Api-->>Op: listens on :8787
+    Op->>Launch: start app profile
+    Launch->>Vite: bun run dev:app
+    Vite-->>Op: listens on :5173 and proxies /v1 to :8787
 ```
 
 ## Trust Boundaries

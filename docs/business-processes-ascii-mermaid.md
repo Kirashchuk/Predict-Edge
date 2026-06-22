@@ -38,6 +38,7 @@ flowchart TB
     subgraph Operations["Operations and controls"]
         DeployOps["Deploy and verify contracts"]
         EnvOps["Sync addresses and env"]
+        LaunchOps["Launch app profile<br/>.claude/launch.json"]
         KeeperOps["Run keeper for crossed orders"]
         DocsOps["Maintain docs, risks, addresses"]
         SecurityOps["Add production controls before launch"]
@@ -66,7 +67,8 @@ flowchart TB
     SettleOracle --> Redeem
 
     DeployOps --> EnvOps
-    EnvOps --> KeeperOps
+    EnvOps --> LaunchOps
+    LaunchOps --> KeeperOps
     KeeperOps --> DocsOps
     DocsOps --> SecurityOps
 ```
@@ -271,16 +273,17 @@ flowchart TB
 ```mermaid
 flowchart TB
     Dev["Developer / operator"]
-    Install["Install root, app, server deps"]
+    Install["bun install root, app, server deps"]
     Wallet["Generate deployer wallet"]
     Fund["Fund deployer with Arc Testnet USDC"]
     Compile["Compile contracts"]
     Deploy["Deploy UMA stack + market + AMM + CLOB"]
     Verify["Verify deployment state"]
     Sync["Sync env to app"]
-    RunApi["Run server on :8787"]
-    RunApp["Run app on :5173"]
-    Keeper["Optionally run keeper"]
+    RunApi["bun run dev:api<br/>server on :8787"]
+    LaunchConfig["Start app profile<br/>.claude/launch.json"]
+    RunApp["bun run dev:app<br/>Vite on :5173"]
+    Keeper["bun run keeper<br/>optional auto-match"]
     Monitor["Monitor transactions, logs, docs"]
     ProductionGate{"Production readiness?"}
     ControlledTestnet["Controlled testnet only"]
@@ -294,7 +297,8 @@ flowchart TB
     Deploy --> Verify
     Verify --> Sync
     Sync --> RunApi
-    Sync --> RunApp
+    Sync --> LaunchConfig
+    LaunchConfig --> RunApp
     RunApi --> Keeper
     RunApp --> Monitor
     Keeper --> Monitor
