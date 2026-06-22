@@ -134,7 +134,7 @@ sequenceDiagram
     participant CLOB as OnChainLimitOrderBook
     participant Env as root .env.local
 
-    Op->>HH: npm run deploy
+    Op->>HH: bun run deploy
     HH->>UMA: deploy Timer, Finder, whitelists, Store, MockOracle, OO V2
     HH->>UMA: register implementations in Finder
     HH->>UMA: whitelist YES_OR_NO_QUERY and USDC
@@ -161,11 +161,11 @@ sequenceDiagram
     participant Api as Bun/Hono server
     participant App as Vite dev server
 
-    Dev->>Sync: npm run sync-env
+    Dev->>Sync: bun run sync-env
     Sync-->>Dev: writes app/.env.local with VITE_*
-    Dev->>Api: npm run dev:api
+    Dev->>Api: bun run dev:api
     Api-->>Dev: listens on :8787
-    Dev->>App: npm run dev:app
+    Dev->>App: bun run dev:app
     App-->>Dev: listens on :5173, proxies /v1 to :8787
 ```
 

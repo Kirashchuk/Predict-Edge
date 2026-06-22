@@ -22,7 +22,7 @@
 |---|---|
 | Next.js App Router runtime | Vite 5 SPA + `react-router-dom` |
 | Next API routes | Hono API на Bun у `server/` |
-| `process.env.NEXT_PUBLIC_*` у frontend | `import.meta.env.VITE_*`, синхронізація через `npm run sync-env` |
+| `process.env.NEXT_PUBLIC_*` у frontend | `import.meta.env.VITE_*`, синхронізація через `bun run sync-env` |
 | Один application package | root Hardhat tooling + `app` frontend + `server` backend |
 | API без окремої OpenAPI поверхні | `OpenAPIHono` + Scalar `/docs` |
 | Demo-only market catalog | Live base market + user-created markets from `/v1/markets` |
@@ -107,7 +107,7 @@ Rejected.
 
 Positive:
 
-- `npm run dev:app` and `npm run dev:api` express the real split.
+- `bun run dev:app` and `bun run dev:api` express the real split.
 - Frontend dev server proxies `/v1` to Hono.
 - API docs live at `http://localhost:8787/docs`.
 - Frontend bundle is PWA-ready and not tied to Node server rendering.
@@ -115,7 +115,7 @@ Positive:
 Costs:
 
 - Developers must run app and API separately for full local UX.
-- `npm run sync-env` must run after deploy before frontend has current contract addresses.
+- `bun run sync-env` must run after deploy before frontend has current contract addresses.
 - JSON persistence is simple but not production-grade.
 
 ## Verification targets
@@ -123,11 +123,11 @@ Costs:
 Use these as current smoke checks:
 
 ```bash
-npm run compile
-npm run verify-deploy
-npm run sync-env
-npm run dev:api
-npm run dev:app
+bun run compile
+bun run verify-deploy
+bun run sync-env
+bun run dev:api
+bun run dev:app
 
 cd server && bun run typecheck
 cd app && bun run typecheck
@@ -146,4 +146,4 @@ Expected local URLs:
 - Add a real database if market metadata or legacy order routes need durability.
 - Add auth/rate-limit around market creation.
 - Add CI for root contracts, app, and server checks.
-- Add production monitoring and failure policy around the testnet `npm run keeper` matcher.
+- Add production monitoring and failure policy around the testnet `bun run keeper` matcher.

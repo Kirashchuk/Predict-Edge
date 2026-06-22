@@ -200,7 +200,7 @@ sequenceDiagram
     participant Sync as scripts/sync-env.ts
     participant AppEnv as app/.env.local
 
-    Op->>Deploy: npm run deploy
+    Op->>Deploy: bun run deploy
     Deploy->>UMA: deploy Timer, Finder, whitelists, Store, MockOracle, OO V2
     Deploy->>UMA: register Finder implementations
     Deploy->>UMA: whitelist YES_OR_NO_QUERY and USDC
@@ -215,7 +215,7 @@ sequenceDiagram
     AMM->>MKT: create YES and NO reserves
     Deploy->>CLOB: deploy CLOB(market)
     Deploy->>Env: write NEXT_PUBLIC_* addresses
-    Op->>Sync: npm run sync-env
+    Op->>Sync: bun run sync-env
     Sync->>AppEnv: write VITE_* addresses
 ```
 

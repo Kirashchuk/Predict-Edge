@@ -81,7 +81,7 @@ git clone https://github.com/Kirashchuk/Predict-Edge.git
 cd Predict-Edge
 
 # 2. Install
-npm install                 # root — Hardhat / contracts tooling
+bun install                 # root — Hardhat / contracts tooling
 cd app && bun install && cd ..
 cd server && bun install && cd ..
 
@@ -90,16 +90,16 @@ node --experimental-strip-types scripts/generate-wallet.ts   # writes PRIVATE_KE
 #    → fund the printed address with USDC from https://faucet.circle.com/
 
 # 4. Compile + deploy contracts to Arc Testnet
-npm run compile
-npm run deploy              # bootstraps UMA + market + AMM + CLOB (USDC collateral), writes addresses
-npm run sync-env            # propagates addresses to app/.env.local (VITE_*)
+bun run compile
+bun run deploy              # bootstraps UMA + market + AMM + CLOB (USDC collateral), writes addresses
+bun run sync-env            # propagates addresses to app/.env.local (VITE_*)
 
 # 5. Run (two terminals)
 cd server && bun run dev    # Hono API  → http://localhost:8787  (/docs)
 cd app && bun run dev       # Vite app  → http://localhost:5173
 
 # Optional: auto-match crossed CLOB orders
-npm run keeper
+bun run keeper
 ```
 
 The frontend dev server proxies `/v1/*` to the backend.
@@ -127,8 +127,8 @@ Secrets live in `.env.local` (git-ignored); only `.env.example` templates are co
 
 | File | Purpose |
 |---|---|
-| **root `.env.local`** | `PRIVATE_KEY` (deployer), RPC, and `NEXT_PUBLIC_*` addresses (written by `npm run deploy`). The backend reuses this file. |
-| **`app/.env.local`** | `VITE_*` addresses (written by `npm run sync-env`) + optional `VITE_CIRCLE_CLIENT_KEY/URL` for the Passkey wallet. |
+| **root `.env.local`** | `PRIVATE_KEY` (deployer), RPC, and `NEXT_PUBLIC_*` addresses (written by `bun run deploy`). The backend reuses this file. |
+| **`app/.env.local`** | `VITE_*` addresses (written by `bun run sync-env`) + optional `VITE_CIRCLE_CLIENT_KEY/URL` for the Passkey wallet. |
 
 Collateral is the fixed Arc USDC system address `0x3600…0000` (6 decimals) — configured by default,
 no need to set it manually.
@@ -137,14 +137,14 @@ no need to set it manually.
 
 | Command | What it does |
 |---|---|
-| `npm run compile` | Compile the Solidity contracts (Hardhat) |
-| `npm run deploy` | Deploy UMA stack + market + AMM + CLOB (USDC) to Arc Testnet |
-| `npm run deploy:clob` | Deploy only a CLOB for the current `NEXT_PUBLIC_MARKET_ADDRESS` |
-| `npm run verify-deploy` | Read back on-chain state (reserves, prices, balances) |
-| `npm run sync-env` | Copy deployed addresses into `app/.env.local` as `VITE_*` |
-| `npm run keeper` | Scan configured CLOBs and auto-match crossed bid/ask orders |
-| `npm run generate-wallet` | Generate a fresh local deployer wallet |
-| `npm run reset` | Clear user-created markets from `data/markets.json` |
+| `bun run compile` | Compile the Solidity contracts (Hardhat) |
+| `bun run deploy` | Deploy UMA stack + market + AMM + CLOB (USDC) to Arc Testnet |
+| `bun run deploy:clob` | Deploy only a CLOB for the current `NEXT_PUBLIC_MARKET_ADDRESS` |
+| `bun run verify-deploy` | Read back on-chain state (reserves, prices, balances) |
+| `bun run sync-env` | Copy deployed addresses into `app/.env.local` as `VITE_*` |
+| `bun run keeper` | Scan configured CLOBs and auto-match crossed bid/ask orders |
+| `bun run generate-wallet` | Generate a fresh local deployer wallet |
+| `bun run reset` | Clear user-created markets from `data/markets.json` |
 | `cd app && bun run dev` | Vite frontend (`:5173`) |
 | `cd server && bun run dev` | Hono backend (`:8787`, Scalar docs at `/docs`) |
 

@@ -100,7 +100,7 @@ Risk:
 
 - More contract surface area than AMM-only trading.
 - Users must approve CLOB to spend USDC or PLT/PST.
-- Crossed books need a matcher/keeper or manual matching; `npm run keeper` is available for testnet matching.
+- Crossed books need a matcher/keeper or manual matching; `bun run keeper` is available for testnet matching.
 - Existing documented base deployment may not have `CLOB_ADDRESS`; CLOB UI is unavailable until redeploy/sync.
 - Production still needs broader gas, indexing and security review around matching policy.
 
@@ -135,7 +135,7 @@ Risk:
 Current mitigations:
 
 - Simple enough for local/testnet demo.
-- `npm run reset` intentionally clears user-created markets.
+- `bun run reset` intentionally clears user-created markets.
 
 Required before production:
 

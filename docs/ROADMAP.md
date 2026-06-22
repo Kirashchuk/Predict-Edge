@@ -24,7 +24,7 @@ Goal:
 Commands:
 
 ```bash
-npm install
+bun install
 cd app && bun install && cd ..
 cd server && bun install && cd ..
 ```
@@ -47,7 +47,7 @@ Goal:
 Command:
 
 ```bash
-npm run compile
+bun run compile
 ```
 
 Gate:
@@ -57,7 +57,7 @@ Gate:
 
 Rollback:
 
-- `npx hardhat clean`, then compile again.
+- `bunx hardhat clean`, then compile again.
 
 ## P2. Testnet funding
 
@@ -89,9 +89,9 @@ Goal:
 Commands:
 
 ```bash
-npm run deploy
-npm run verify-deploy
-npm run sync-env
+bun run deploy
+bun run verify-deploy
+bun run sync-env
 ```
 
 Gate:
@@ -113,8 +113,8 @@ Goal:
 Commands:
 
 ```bash
-npm run dev:api
-npm run dev:app
+bun run dev:api
+bun run dev:app
 ```
 
 Gate:
@@ -126,7 +126,7 @@ Gate:
 
 Rollback:
 
-- Check ports 8787/5173, env values, and rerun `npm run sync-env`.
+- Check ports 8787/5173, env values, and rerun `bun run sync-env`.
 
 ## P5. Trading smoke
 
@@ -169,7 +169,7 @@ Implemented:
 - Place escrowed on-chain limit order via `OnChainLimitOrderBook`.
 - Show CLOB open orders and AMM depth reference in `OrderBook`.
 - Fill/cancel/match CLOB orders through wallet transactions.
-- Auto-match crossed CLOB orders with `npm run keeper`.
+- Auto-match crossed CLOB orders with `bun run keeper`.
 - Show on-chain AMM/CLOB trade history on market detail pages.
 - Show positions in `/portfolio`.
 - Show aggregate portfolio value chart in `/portfolio`.
@@ -182,7 +182,7 @@ Gate:
 
 Rollback:
 
-- `npm run reset` for markets.
+- `bun run reset` for markets.
 - Cancel CLOB orders on-chain if possible or redeploy a fresh testnet market/CLOB.
 - Clear `data/orders.json` only if testing legacy `/v1/orders`.
 
@@ -230,7 +230,7 @@ Required decisions:
 | Phase | Status | Notes |
 |---|---|---|
 | P0 Local setup | Done locally | Root/app/server dependency sets exist |
-| P1 Compile | Expected working | Verify with `npm run compile` |
+| P1 Compile | Expected working | Verify with `bun run compile` |
 | P2 Funding | Operator-dependent | Requires faucet USDC |
 | P3 Deploy | Done for documented addresses | See [deployed-addresses.md](deployed-addresses.md) |
 | P4 Runtime | Implemented | API `:8787`, app `:5173` |

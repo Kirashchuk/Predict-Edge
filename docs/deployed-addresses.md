@@ -56,7 +56,7 @@ Will Bitcoin exceed $100,000 before June 1, 2026?
 |---|---|---|
 | `Will Ethereum close above 10000 USD in 2026?` | [`0xd4fba19137E43dbc5702C27e114fd16f6702a973`](https://testnet.arcscan.app/address/0xd4fba19137E43dbc5702C27e114fd16f6702a973) | [`0x2a07F0978145eacf04eF51c322Af56981eff19ff`](https://testnet.arcscan.app/address/0x2a07F0978145eacf04eF51c322Af56981eff19ff) |
 
-This local list is not canonical for every checkout. It is file-backed testnet state and can be reset with `npm run reset`.
+This local list is not canonical for every checkout. It is file-backed testnet state and can be reset with `bun run reset`.
 
 The current code deploys `OnChainLimitOrderBook` for newly created markets, but the local
 `data/markets.json` entry above does not yet include `clobAddress`. Create a new market or redeploy
@@ -67,7 +67,7 @@ to get CLOB metadata.
 Use:
 
 ```bash
-npm run verify-deploy
+bun run verify-deploy
 ```
 
 Expected state for the base market:
@@ -98,4 +98,4 @@ NEXT_PUBLIC_TIMER_ADDRESS=0x9b29D73ef5889aa1C1DF98212EFBF41BCB513E5b
 NEXT_PUBLIC_MOCK_ORACLE_ADDRESS=0xB129B9a47F695B003C1202A15ddCc758831C4289
 ```
 
-Then run `npm run sync-env` so `app/.env.local` receives the matching `VITE_*` values.
+Then run `bun run sync-env` so `app/.env.local` receives the matching `VITE_*` values.

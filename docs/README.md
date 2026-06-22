@@ -44,11 +44,11 @@ Templars-style monoreпо:
 
 ```bash
 # root: contracts/deploy tooling
-npm install
-npm run compile
-npm run deploy
-npm run verify-deploy
-npm run sync-env
+bun install
+bun run compile
+bun run deploy
+bun run verify-deploy
+bun run sync-env
 
 # backend
 cd server
@@ -61,8 +61,8 @@ bun install
 bun run dev
 ```
 
-Після `npm run deploy` адреси пишуться в root `.env.local` як `NEXT_PUBLIC_*`. Команда
-`npm run sync-env` переносить їх у `app/.env.local` як `VITE_*`, бо frontend працює на Vite.
+Після `bun run deploy` адреси пишуться в root `.env.local` як `NEXT_PUBLIC_*`. Команда
+`bun run sync-env` переносить їх у `app/.env.local` як `VITE_*`, бо frontend працює на Vite.
 
 ## Ключові факти
 
@@ -70,5 +70,5 @@ bun run dev
 - Mintable ARCT більше не є колатералем актуального deploy; старі згадки про ARCT у попередніх docs були історичними.
 - Limit orders у поточному UI йдуть через `OnChainLimitOrderBook`, а не через `/v1/orders`.
 - `POST /v1/markets` створює новий market + AMM + CLOB серверним deployer key. Це тестнетний UX-компроміс і ключова trust boundary.
-- Задокументовані base-market адреси можуть бути старим deploy без `CLOB_ADDRESS`; для CLOB на base market потрібно redeploy + `npm run sync-env`.
+- Задокументовані base-market адреси можуть бути старим deploy без `CLOB_ADDRESS`; для CLOB на base market потрібно redeploy + `bun run sync-env`.
 - Resolution values: `1e18` = YES, `0` = NO, `5e17` = Undetermined.

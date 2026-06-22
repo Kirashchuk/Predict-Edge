@@ -166,7 +166,7 @@ Trade-offs:
 - Stronger execution guarantees than the previous JSON-backed order demo.
 - More gas and contract surface area.
 - Needs allowance UX for USDC and position tokens.
-- Needs a keeper/matcher process for automatic matching; the repo includes `npm run keeper` for testnet auto-matching of crossed books.
+- Needs a keeper/matcher process for automatic matching; the repo includes `bun run keeper` for testnet auto-matching of crossed books.
 - Current recorded base-market env may not have a CLOB address because those addresses were deployed before the CLOB addition.
 
 ## Consequences

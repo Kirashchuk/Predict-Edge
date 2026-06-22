@@ -88,18 +88,18 @@ bun test
 Root commands:
 
 ```bash
-npm install
-npm run compile
-npm run deploy
-npm run verify-deploy
-npm run sync-env
-npm run generate-wallet
-npm run reset
-npm run test:contracts
-npm run keeper
-npm run dev:api
-npm run dev:app
-npm run build:app
+bun install
+bun run compile
+bun run deploy
+bun run verify-deploy
+bun run sync-env
+bun run generate-wallet
+bun run reset
+bun run test:contracts
+bun run keeper
+bun run dev:api
+bun run dev:app
+bun run build:app
 ```
 
 ## Environment model
@@ -137,7 +137,7 @@ Deploy writes root `.env.local`. `scripts/sync-env.ts` maps root variables into 
 ## Що не реалізовано
 
 - Немає Next.js runtime, Next API routes або `localhost:3000`.
-- Testnet keeper script exists as `npm run keeper`; production still needs monitoring and failure policy.
+- Testnet keeper script exists as `bun run keeper`; production still needs monitoring and failure policy.
 - Немає Postgres/Drizzle/Redis/worker scheduler. Збереження зараз файлове.
 - Немає production auth/rate-limit для `POST /v1/markets`.
 - Немає real UMA DVM на Arc у цьому testnet bootstrap; використовується `MockOracleAncillary`.

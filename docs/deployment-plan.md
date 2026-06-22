@@ -22,12 +22,12 @@ USDC береться з [Circle faucet](https://faucet.circle.com/) на адр
 git clone https://github.com/Kirashchuk/Predict-Edge.git
 cd Predict-Edge
 
-npm install
+bun install
 cd app && bun install && cd ..
 cd server && bun install && cd ..
 ```
 
-Root `npm install` потрібен для Hardhat, OpenZeppelin, UMA artifacts і scripts. `app` та `server`
+Root `bun install` потрібен для Hardhat, OpenZeppelin, UMA artifacts і scripts. `app` та `server`
 мають власні lockfiles і Bun toolchain.
 
 ## 2. Root env
@@ -72,7 +72,7 @@ NEXT_PUBLIC_MOCK_ORACLE_ADDRESS=0x...
 1. Візьміть адресу deployer з wallet або згенеруйте нову:
 
 ```bash
-npm run generate-wallet
+bun run generate-wallet
 ```
 
 2. Поповніть адресу Arc Testnet USDC через [Circle faucet](https://faucet.circle.com/).
@@ -89,7 +89,7 @@ Deploy потребує gas і ERC-20 USDC balance. Поточний base market
 ## 4. Compile contracts
 
 ```bash
-npm run compile
+bun run compile
 ```
 
 Очікування:
@@ -101,7 +101,7 @@ npm run compile
 ## 5. Deploy UMA, market і AMM
 
 ```bash
-npm run deploy
+bun run deploy
 ```
 
 Скрипт `scripts/deploy.ts` виконує:
@@ -126,7 +126,7 @@ npm run deploy
 ## 6. Sync env для Vite frontend
 
 ```bash
-npm run sync-env
+bun run sync-env
 ```
 
 Це створює або оновлює `app/.env.local`:
@@ -155,7 +155,7 @@ VITE_CIRCLE_CLIENT_URL=<circle_client_url>
 ## 7. Verify deploy
 
 ```bash
-npm run verify-deploy
+bun run verify-deploy
 ```
 
 Перевіряється:
@@ -169,7 +169,7 @@ npm run verify-deploy
 
 Current note: the checked-in/local documented base addresses may predate CLOB deployment and therefore
 may not include `NEXT_PUBLIC_CLOB_ADDRESS`. If `VITE_CLOB_ADDRESS` is empty, the UI will show that
-CLOB is unavailable for that market. Rerun `npm run deploy` and `npm run sync-env` to deploy a base
+CLOB is unavailable for that market. Rerun `bun run deploy` and `bun run sync-env` to deploy a base
 market with CLOB support.
 
 ## 8. Run backend і frontend
@@ -177,11 +177,11 @@ market with CLOB support.
 У двох терміналах:
 
 ```bash
-npm run dev:api
+bun run dev:api
 ```
 
 ```bash
-npm run dev:app
+bun run dev:app
 ```
 
 URLs:
@@ -225,20 +225,20 @@ Security note: do not expose this endpoint publicly without auth/rate-limit/quot
 
 | Command | Purpose |
 |---|---|
-| `npm run compile` | Compile Solidity |
-| `npm run deploy` | Deploy UMA stack + base market + AMM |
-| `npm run verify-deploy` | Read on-chain status |
-| `npm run sync-env` | Copy root env addresses to Vite env |
-| `npm run dev:api` | Run Hono backend |
-| `npm run dev:app` | Run Vite frontend |
-| `npm run build:app` | Build frontend |
-| `npm run reset` | Clear `data/markets.json` |
-| `npm run test:contracts` | Run Hardhat tests if present |
+| `bun run compile` | Compile Solidity |
+| `bun run deploy` | Deploy UMA stack + base market + AMM |
+| `bun run verify-deploy` | Read on-chain status |
+| `bun run sync-env` | Copy root env addresses to Vite env |
+| `bun run dev:api` | Run Hono backend |
+| `bun run dev:app` | Run Vite frontend |
+| `bun run build:app` | Build frontend |
+| `bun run reset` | Clear `data/markets.json` |
+| `bun run test:contracts` | Run Hardhat tests if present |
 
 ## Rollback
 
-- Failed deploy: fund deployer, fix env, run `npm run deploy` again. New contracts are deployed; old testnet contracts remain on-chain.
-- Wrong frontend addresses: run `npm run sync-env`, restart `npm run dev:app`.
-- Bad user-created markets: run `npm run reset` or edit `data/markets.json` in a controlled dev environment.
+- Failed deploy: fund deployer, fix env, run `bun run deploy` again. New contracts are deployed; old testnet contracts remain on-chain.
+- Wrong frontend addresses: run `bun run sync-env`, restart `bun run dev:app`.
+- Bad user-created markets: run `bun run reset` or edit `data/markets.json` in a controlled dev environment.
 - Bad CLOB orders: cancel on-chain if possible, or redeploy a new market/CLOB in testnet.
 - Legacy API orders: clear `data/orders.json` if using the old `/v1/orders` path.
