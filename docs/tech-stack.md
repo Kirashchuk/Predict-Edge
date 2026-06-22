@@ -1,78 +1,143 @@
-# Технічний стек Predict-Edge (копія Templars Trade)
+# Технічний стек Predict-Edge
 
-Стек приведено у відповідність до основного продукту **Templars Trade** (nado-mvp). Деталі рішення —
-в [ADR-002](ADR-002-templars-stack.md).
+Документ фіксує стек, який реально є в репозиторії зараз. Root package не запускає Next.js:
+він відповідає за Hardhat/deploy tooling, а application runtime винесений у `app/` і `server/`.
 
-## Огляд (монорепо)
+## Структура монорепо
 
-```
+```text
 predict-edge/
-├── app/         # Frontend — Vite + React 18 + shadcn + Tailwind (Bun)   ← як nado-mvp/app
-├── server/      # Backend  — Hono на Bun (ethers v6)                       ← як nado-mvp/api
-├── contracts/   # Solidity (Hardhat) — без змін
-├── scripts/     # Деплой/утиліти (deploy, verify, generate-wallet, sync-env)
-└── docs/
+├── app/            # Vite + React frontend, Bun, PWA
+├── server/         # Hono API на Bun
+├── contracts/      # Solidity contracts: market, AMM, CLOB
+├── scripts/        # deploy, verify, env sync, wallet/reset utilities
+├── data/           # markets.json plus legacy orders.json
+├── docs/           # архітектурна документація
+├── artifacts/      # Hardhat output, gitignored
+├── cache/          # Hardhat cache, gitignored
+└── typechain-types/# TypeChain output, gitignored
 ```
 
-## Frontend — `app/` (= nado-mvp/app)
+## Frontend: `app/`
 
-| Категорія | Технологія |
+| Категорія | Реалізація |
 |---|---|
-| Build/runtime | **Vite 5** + **Bun**, `@vitejs/plugin-react-swc`, **vite-plugin-pwa** |
-| UI | **React 18**, **Tailwind 3**, **shadcn/ui** (Radix, slate, CSS-vars), framer-motion, lucide |
-| Архітектура | **feature-sliced**: `src/app` · `src/features/{markets,trading,wallet}` · `src/shared/{ui,lib}` · `src/styles` |
-| Web3 | **wagmi 3** + **viem 2** (injected/MetaMask) |
-| Дані/стан | @tanstack/react-query, zustand, react-hook-form + zod |
-| Маршрути | react-router-dom 6 (route-table в `app/App.tsx`) |
-| Шрифти | Space Grotesk + JetBrains Mono (@fontsource) |
-| Тулінг | ESLint 9 flat (+`no-restricted-imports` guard), Prettier, `tsc -b` |
-| Deploy | Dockerfile (Bun build → nginx) |
+| Runtime/build | Bun, Vite 5, `@vitejs/plugin-react-swc` |
+| UI | React 18, Tailwind 3, shadcn-style primitives на Radix, lucide-react, framer-motion |
+| App shell | `react-router-dom` маршрути `/`, `/market/:address`, `/portfolio` |
+| Data fetching | `@tanstack/react-query` |
+| Web3 reads/writes | wagmi 3, viem 2, injected connector, explicit Arc Testnet chain guard |
+| Circle wallet | `@circle-fin/modular-wallets-core`, passkey/WebAuthn, smart account, bundler client, paymaster |
+| Charts | `lightweight-charts`, generated sparklines |
+| PWA | `vite-plugin-pwa`, manifest/icons, `/v1/*` network-only caching rule |
+| Архітектура | feature-sliced: `src/app`, `src/features/{markets,trading,wallet,portfolio}`, `src/shared/{ui,lib}`, `src/styles` |
+| API access | Vite dev proxy `/v1` -> `http://localhost:8787` |
+| Docker | Bun build -> nginx (`app/Dockerfile`, `app/nginx.conf`) |
 
-## Backend — `server/` (= nado-mvp/api)
-
-| Категорія | Технологія |
-|---|---|
-| Runtime | **Bun** (`Bun.serve`) |
-| Framework | **Hono** (`OpenAPIHono`) — порт `/v1/markets` GET+POST |
-| Web3 | **ethers v6** (деплой market+AMM, seed) |
-| Валідація/помилки | **zod**, **neverthrow** (Result) |
-| Логування | **pino** (+ pino-pretty) |
-| API docs | `@hono/zod-openapi` + **Scalar** (`/docs`, `/openapi.json`) |
-| Структура | `src/{index.ts, app.ts, core/, modules/markets/}` |
-| Deploy | Dockerfile (oven/bun) |
-
-> Розширення «як у nado» (далі за потреби): Drizzle ORM + Postgres, awilix DI, ioredis,
-> OpenTelemetry/HyperDX, bun workspaces з `packages/shared`.
-
-## Contracts — `contracts/` (без змін)
-
-Solidity 0.8.17 + Hardhat + OpenZeppelin 4.9 + UMA OO V2. Деталі — [ADR-001](ADR-001-architecture.md),
-[smart-contract-map.md](smart-contract-map.md).
-
-## Карта міграції Next.js → Templars
-
-| Було (Next.js) | Стало (Templars) |
-|---|---|
-| Next.js App Router | Vite SPA + react-router |
-| Next API routes (`app/api/*`) | Hono на Bun (`server/`) |
-| viem-деплой у route | ethers v6 у `server` |
-| `process.env.NEXT_PUBLIC_*` | `import.meta.env.VITE_*` (+ `sync-env.ts`) |
-| `components/`, `hooks/`, `lib/` | `src/features/<x>/`, `src/shared/` |
-| Circle Passkey + injected | injected/MetaMask (wagmi) |
-| npm | **Bun** |
-
-## Команди
+Основні frontend-команди:
 
 ```bash
-# Frontend
-cd app && bun install && bun run dev        # http://localhost:5173
-cd app && bun run build                     # production build
-
-# Backend
-cd server && bun install && bun run dev     # http://localhost:8787  (/docs, /v1/markets)
-
-# Contracts (корінь)
-npm run compile && npm run deploy           # Hardhat → Arc Testnet
-npm run sync-env                            # адреси → app/.env.local (VITE_)
+cd app
+bun install
+bun run dev        # http://localhost:5173
+bun run build
+bun run typecheck
+bun run lint
 ```
-</content>
+
+## Backend: `server/`
+
+| Категорія | Реалізація |
+|---|---|
+| Runtime | Bun, `Bun.serve` |
+| Framework | Hono, `OpenAPIHono` |
+| API docs | `/openapi.json`, `/docs` через Scalar |
+| Routes | `/health`, `/v1/markets`, legacy `/v1/orders` |
+| Web3 | ethers v6 для server-side deploy market + AMM + CLOB |
+| Валідація | zod schemas у Hono routes |
+| Error model | `neverthrow` у create-market service |
+| Logging | pino |
+| Persistence | JSON files: `data/markets.json`; `data/orders.json` remains for legacy order routes |
+| Config | root `.env.local` + server `.env`, `API_PORT`, `CORS_ORIGINS`, `ARC_RPC_URL`, `PRIVATE_KEY` |
+| Docker | `server/Dockerfile` на `oven/bun` |
+
+Основні backend-команди:
+
+```bash
+cd server
+bun install
+bun run dev        # http://localhost:8787
+bun run typecheck
+bun run lint
+bun test
+```
+
+## Contracts/deploy: root
+
+| Категорія | Реалізація |
+|---|---|
+| Framework | Hardhat 2 + `@nomicfoundation/hardhat-toolbox` |
+| Solidity | 0.8.17, optimizer enabled, `runs=1000000` |
+| Contracts | `EventBasedPredictionMarket.sol`, `PredictionMarketAMM.sol`, `OnChainLimitOrderBook.sol` |
+| Dependencies | OpenZeppelin 4.9, UMA `@uma/core` artifacts |
+| Network | `arcTestnet`, chainId `5042002`, RPC default `https://rpc.testnet.arc.network` |
+| Explorer config | Arcscan custom chain in `hardhat.config.ts` |
+| Collateral | Arc Testnet USDC ERC-20 system address `0x3600000000000000000000000000000000000000`, 6 decimals |
+| Gas | Native Arc USDC, 18 decimals at wallet balance level |
+
+Root commands:
+
+```bash
+npm install
+npm run compile
+npm run deploy
+npm run verify-deploy
+npm run sync-env
+npm run generate-wallet
+npm run reset
+npm run test:contracts
+npm run keeper
+npm run dev:api
+npm run dev:app
+npm run build:app
+```
+
+## Environment model
+
+| File | Призначення |
+|---|---|
+| root `.env.local` | `PRIVATE_KEY`, `NEXT_PUBLIC_ALCHEMY_RPC_URL`, deployed `NEXT_PUBLIC_*` addresses |
+| `app/.env.local` | `VITE_*` addresses and optional Circle credentials |
+| server `.env` | optional backend overrides such as `API_PORT`, `CORS_ORIGINS`, `ARC_RPC_URL` |
+
+Deploy writes root `.env.local`. `scripts/sync-env.ts` maps root variables into Vite variables:
+
+| Root | Frontend |
+|---|---|
+| `NEXT_PUBLIC_ALCHEMY_RPC_URL` | `VITE_ARC_RPC_URL` |
+| `NEXT_PUBLIC_MARKET_ADDRESS` | `VITE_MARKET_ADDRESS` |
+| `NEXT_PUBLIC_AMM_ADDRESS` | `VITE_AMM_ADDRESS` |
+| `NEXT_PUBLIC_CLOB_ADDRESS` | `VITE_CLOB_ADDRESS` |
+| `NEXT_PUBLIC_USDC_ADDRESS` | `VITE_USDC_ADDRESS` |
+| `NEXT_PUBLIC_OO_V2_ADDRESS` | `VITE_OO_V2_ADDRESS` |
+| `NEXT_PUBLIC_FINDER_ADDRESS` | `VITE_FINDER_ADDRESS` |
+| `NEXT_PUBLIC_TIMER_ADDRESS` | `VITE_TIMER_ADDRESS` |
+
+## Реалізовані product features
+
+- Market grid із категоріями, одним базовим live market із env addresses і user-created markets із API.
+- Market detail із live AMM prices/reserves, portfolio balances, TradingPanel, OrderBook і UMA resolution controls.
+- Buy/sell YES/NO через AMM із preview-функціями `calcBuy*`/`calcSell*`.
+- Escrowed on-chain limit orders через `OnChainLimitOrderBook`: `placeLimitOrder`, `cancelOrder`, `fillOrder`, `matchOrders`.
+- `TradeHistory` читає AMM і CLOB logs з Arc.
+- Portfolio page, що агрегує positions по live markets.
+- Create Market dialog, який викликає `POST /v1/markets` і деплоїть market + AMM + CLOB серверним key.
+- Dual-wallet UX: MetaMask/injected або Circle Passkey, якщо Circle credentials задані.
+
+## Що не реалізовано
+
+- Немає Next.js runtime, Next API routes або `localhost:3000`.
+- Testnet keeper script exists as `npm run keeper`; production still needs monitoring and failure policy.
+- Немає Postgres/Drizzle/Redis/worker scheduler. Збереження зараз файлове.
+- Немає production auth/rate-limit для `POST /v1/markets`.
+- Немає real UMA DVM на Arc у цьому testnet bootstrap; використовується `MockOracleAncillary`.

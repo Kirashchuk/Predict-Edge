@@ -68,6 +68,7 @@ async function deployMarketAndAmm(
 
   const marketArtifact = loadArtifact('EventBasedPredictionMarket.sol/EventBasedPredictionMarket.json');
   const ammArtifact = loadArtifact('PredictionMarketAMM.sol/PredictionMarketAMM.json');
+  const clobArtifact = loadArtifact('OnChainLimitOrderBook.sol/OnChainLimitOrderBook.json');
 
   const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, wallet);
 
@@ -112,10 +113,18 @@ async function deployMarketAndAmm(
   const ammInit = new ethers.Contract(ammAddress, AMM_INIT_ABI, wallet);
   await (await ammInit.initialize!(SEED_LIQUIDITY)).wait();
 
+  // --- Deploy CLOB --------------------------------------------------------
+  const clobFactory = new ethers.ContractFactory(clobArtifact.abi, clobArtifact.bytecode, wallet);
+  const clob = await clobFactory.deploy(marketAddress);
+  await clob.waitForDeployment();
+  const clobAddress = await clob.getAddress();
+  logger.info({ clobAddress }, 'clob deployed');
+
   const market_: StoredMarket = {
     id: `user-${Date.now()}`,
     address: marketAddress,
     ammAddress,
+    clobAddress,
     title,
     category: 'Crypto',
     createdAt: new Date().toISOString(),

@@ -1,262 +1,209 @@
-# ADR-001: Архітектура тестнет-проєкту «Prediction Market на Arc»
+# ADR-001: Архітектура Predict-Edge на Arc Testnet
 
-**Status:** Accepted (для тестнет-середовища)
-**Date:** 2026-06-21
-**Deciders:** Архітектор проєкту / deployer (некастодіальний гаманець), рев'ювери Circle sample-коду
-**Базовий код:** [circlefin/arc-prediction-markets](https://github.com/circlefin/arc-prediction-markets) (Apache-2.0)
-**Мережа:** Arc Testnet (Circle, stablecoin-native L1), Chain ID `5042002`, нативний gas = USDC
+- **Status:** Accepted for testnet
+- **Date:** 2026-06-22
+- **Scope:** Smart contracts, backend API, frontend wallet/trading flows, deploy model
+- **Base:** Circle `arc-prediction-markets`, repackaged into the current Predict-Edge monorepo
 
----
+## Context
 
-## 1. Context
+Потрібна testnet-система binary YES/NO prediction markets на Arc Testnet:
 
-Потрібно розгорнути та задокументувати **децентралізований ринок прогнозів** (binary YES/NO)
-на **Arc Testnet** на базі опенсорс-коду Circle. Ключові сили/обмеження:
+- Торгівля має працювати без market maker operator, тому потрібна вбудована on-chain ліквідність.
+- Резолюція не має залежати від owner-only resolver.
+- Arc використовує USDC як native gas asset, а поточний продукт також торгує USDC як ERC-20 collateral.
+- Frontend має підтримувати звичайний injected EVM wallet і Circle Passkey smart account.
+- Створення ринків у demo має бути швидким із UI, але без production claims.
 
-- **Мережа Arc** — stablecoin-native L1, де **газ платиться нативним USDC** (немає окремого ETH-подібного активу).
-  UMA-оракул-інфраструктура офіційно **не задеплоєна** на Arc, тому її треба бутстрапити самостійно.
-- **Резолюція має бути недовіреною** (не через owner-а контракту), щоб ринок був credibly neutral.
-- **Безперервна торгівля** позиційними токенами без потреби в order-book / маркет-мейкерах.
-- **Дві категорії користувачів:** ті, хто має EVM-розширення (MetaMask), і ті, хто хоче
-  безкастодіальний UX без розширення (Circle Passkey / WebAuthn, smart account).
-- **Обмеження середовища:** лише тестнет; жодних мейннет-ключів і реальних коштів;
-  секрети не комітяться; логіку контрактів спершу запускаємо as-is.
-- **Час/прозорість:** рішення мають бути відтворюваними «з нуля» за документом.
+## Decision
 
-Цей ADR фіксує **сукупність архітектурних рішень**, успадкованих із sample-коду Circle,
-з явним переліком альтернатив і trade-offs — щоб майбутні зміни приймались усвідомлено.
+Прийнято архітектуру з п'яти шарів:
 
----
+1. **Contracts:** `EventBasedPredictionMarket` + `PredictionMarketAMM` + `OnChainLimitOrderBook` на Solidity 0.8.17.
+2. **Resolution:** UMA Optimistic Oracle V2, який локально bootstraps deploy script, з `MockOracleAncillary` як testnet DVM substitute.
+3. **Collateral/trading asset:** Arc Testnet USDC ERC-20 system contract `0x3600000000000000000000000000000000000000` з 6 decimals.
+4. **Application runtime:** Vite React SPA в `app/` + Bun/Hono API в `server/`.
+5. **Market creation:** `POST /v1/markets` деплоїть market + AMM + CLOB серверним deployer key і зберігає metadata в `data/markets.json`.
 
-## 2. Decision (стисло)
+Це замінює попередній test-token варіант із mintable ARCT як колатералем. ARCT більше не є актуальним торговим collateral у deploy script.
 
-Прийнято архітектуру з **п'яти шарів**, успадковану від Circle sample, **без зміни логіки контрактів**:
+## D1. Resolution mechanism
 
-1. **Контракти (Solidity 0.8.17, Hardhat):** `EventBasedPredictionMarket` (життєвий цикл) +
-   `PredictionMarketAMM` (constant-product, 2% fee), що працюють поверх **UMA Optimistic Oracle V2**.
-2. **Резолюція:** UMA OO V2 у **event-based** режимі (propose → dispute → settle) з
-   `MockOracleAncillary` як DVM-замінником на тестнеті.
-3. **Колатераль:** `TestnetERC20` (ARCT, 18 decimals) — вільно мінтиться (faucet), окремо від
-   нативного газового USDC.
-4. **Frontend:** Next.js (App Router) + Wagmi/Viem; абстракція двох типів гаманців через єдиний
-   хук `useContractWrite`.
-5. **Bootstrap UMA:** імперативний `scripts/deploy.ts` деплоїть Timer/Finder/IdentifierWhitelist/
-   AddressWhitelist/Store/MockOracleAncillary/OptimisticOracleV2 + ARCT, реєструє все у Finder,
-   ініціалізує ринок і сідить AMM.
+**Chosen:** UMA Optimistic Oracle V2 in event-based mode.
 
-Окремі рішення з альтернативами розглянуто нижче (D1–D7).
+Pros:
 
----
+- Permissionless propose/dispute/settle flow.
+- Ринок не має centralized owner-resolver.
+- `EventBasedPredictionMarket` перевіряє sender callback, identifier, ancillary data і current timestamp.
 
-## 3. Options Considered
+Trade-offs:
 
-### D1. Механізм резолюції результату ринку
+- UMA не є нативно задеплоєною на Arc у цьому проєкті, тому deploy script піднімає Finder, whitelists, Store, MockOracle і OO V2.
+- Dispute arbitration у testnet спирається на `MockOracleAncillary`, тобто admin може push price. Це не production DVM.
+- `marketLiveness = 60s` оптимізовано для demo, не для реального оскарження.
 
-#### Option A: UMA Optimistic Oracle V2 (обрано)
-| Dimension | Assessment |
-|-----------|------------|
-| Complexity | Medium — треба бутстрапити Finder/whitelists/OO/DVM-замінник |
-| Cost | Low на тестнеті (fees=0 у Store, ARCT безкоштовний) |
-| Trust model | Optimistic, **недовірений**: будь-хто proposes; dispute → DVM |
-| Decentralization | High — немає owner-резолвера |
+Rejected alternatives:
 
-**Pros:** credibly neutral; стандарт індустрії для prediction markets; event-based режим
-дозволяє кілька раундів диспутів; готові інтерфейси в `@uma/core`.
-**Cons:** на Arc немає рідної UMA → треба деплоїти весь стек; на тестнеті DVM замінено
-`MockOracleAncillary` (admin push price) — не реальний consensus.
+- Owner/multisig resolver: простіше, але centralized.
+- Chainlink-style price feed: не покриває довільні event-based YES/NO питання.
 
-#### Option B: Централізований owner/resolver (multisig або EOA викликає `resolve`)
-**Pros:** просто, дешево, миттєво.
-**Cons:** довірена сторона; суперечить суті prediction market; ризик маніпуляції/цензури.
-**Verdict:** відхилено — ламає недовіреність.
+## D2. Trading venues
 
-#### Option C: Chainlink / зовнішній price feed
-**Pros:** надійні дані для цінових подій.
-**Cons:** покриває лише цінові, не довільні YES/NO-питання; не задеплоєний на Arc;
-не вирішує «суб'єктивні» події.
-**Verdict:** відхилено для загального YES/NO-кейсу.
+**Chosen:** AMM for instant liquidity plus on-chain CLOB for escrowed limit orders.
 
----
+AMM mechanics:
 
-### D2. Торговий механізм (ліквідність позиційних токенів)
+- Buy YES/NO: користувач вносить USDC, AMM викликає `market.create`, отримує пару YES+NO і свапає небажану ногу.
+- Sell YES/NO: AMM свапає позиційний токен на протилежну ногу, викликає `market.redeem` і повертає USDC.
+- Price: YES = `reserveNo / (reserveYes + reserveNo)`, NO = `reserveYes / (reserveYes + reserveNo)`.
+- Fee: `200 bps`.
 
-#### Option A: Вбудований constant-product AMM `x*y=k` (обрано)
-| Dimension | Assessment |
-|-----------|------------|
-| Complexity | Low–Medium — один контракт, прості формули |
-| Capital efficiency | Medium — є проковзування/slippage |
-| UX | High — миттєва ліквідність, ціна = ймовірність |
+CLOB mechanics:
 
-**Pros:** безперервна ліквідність без order-book; ціна YES = `reserveNo/(reserveYes+reserveNo)`
-читається як ймовірність; ціни YES+NO завжди = 1.00; 2% swap fee як стимул для LP.
-**Cons:** slippage на великих ордерах; impermanent-loss для seed-ліквідності; mint+swap робить
-ефективну ціну купівлі нелінійною.
+- `OnChainLimitOrderBook` деплоїться для конкретного market.
+- Buy limit orders escrow USDC.
+- Sell limit orders escrow YES або NO position tokens.
+- Makers can cancel open orders.
+- Takers can `fillOrder`.
+- Any matcher can `matchOrders` when bid and ask are crossed.
 
-#### Option B: Central Limit Order Book (CLOB)
-**Pros:** краще ціноутворення, менший slippage при глибокій книзі.
-**Cons:** потребує маркет-мейкерів і off-chain інфраструктури; дорого/складно on-chain.
-**Verdict:** відхилено для тестнет-демо.
+Trade-offs:
 
-#### Option C: LMSR (Logarithmic Market Scoring Rule)
-**Pros:** обмежений збиток оператора, гладке ціноутворення.
-**Cons:** складніша математика, потреба в subsidy; зайве для sample.
-**Verdict:** відхилено — надлишкова складність.
+- Простий UX і безперервна ліквідність.
+- Slippage росте з розміром trade.
+- Немає `minOut`/deadline в contract methods, тому production потребує slippage protection.
+- CLOB дає on-chain escrow, але потребує deployed CLOB address і keeper/matcher UX для crossed books.
 
----
+Rejected alternatives:
 
-### D3. Bootstrap UMA-інфраструктури на Arc
+- LMSR: більше математики й subsidy mechanics, зайве для поточної реалізації.
 
-#### Option A: Деплой повного UMA-стека через `scripts/deploy.ts` (обрано)
-**Pros:** самодостатньо; працює на будь-якому EVM-чейні без рідної UMA; повний контроль над
-параметрами (liveness, bond, fees=0).
-**Cons:** `MockOracleAncillary` ≠ реальний DVM (немає голосування токенхолдерів);
-довіра до admin, який пушить ціну в диспуті; багато контрактів = довший деплой.
+## D3. Collateral model
 
-#### Option B: Чекати/використати офіційний UMA-деплой на Arc
-**Cons:** його немає — UMA задеплоєна лише на Ethereum/Polygon/Optimism/Arbitrum/Base/Blast/Story/
-Avalanche (+ окремі тестнети). **Verdict:** неможливо зараз.
+**Chosen:** USDC as both user-facing collateral and gas asset context.
 
----
+Important distinction:
 
-### D4. Деплой-фреймворк і керування ключем деплоєра
+- Wallet native balance on Arc показується як USDC з 18 decimals і платить gas.
+- Trading collateral використовує ERC-20 interface за адресою `0x3600...0000` з 6 decimals.
+- UI і scripts не повинні змішувати 18-dec native balance із 6-dec ERC-20 token amounts.
 
-#### Option A: Імперативний `deploy.ts` + **raw private key** (обрано в цій гілці)
-| Dimension | Assessment |
-|-----------|------------|
-| Dependencies | Менше — без `@uma/common`, `hardhat-deploy` |
-| Setup | Простий — один ключ, один скрипт |
-| Reproducibility | Medium — один деплоєр, без HD-derivation |
+Consequences:
 
-**Pros:** мінімум залежностей; прозорий лінійний скрипт; легко читати/міняти.
-**Cons:** немає декларативного multi-step фреймворку; немає HD-derivation; для multi-chain/
-production менш зручно.
+- Немає free mint collateral. Deployer і users мають отримати USDC з Circle faucet.
+- Market seed у deploy script малий: `5 USDC`, reward `0.1 USDC`, bond `1 USDC`.
+- Production migration не потребує заміни fake collateral, але все ще потребує реального oracle/governance hardening.
 
-#### Option B: Mnemonic + `hardhat-deploy` (як в офіційному UMA-туторіалі)
-**Pros:** декларативні міграції, HD-гаманці, реюз кроків.
-**Cons:** більше залежностей, складніший setup для single-deployer тестнету.
-**Verdict:** залишено як рекомендацію для production (див. Action Items).
+## D4. Application runtime
 
-> Це рішення **успадковане** із sample-коду; задокументоване тут, бо змінює модель ключів
-> (raw PK замість mnemonic) — а ключі деплоєра є межею довіри (див. D7 і розділ ризиків).
+**Chosen:** Vite SPA + Bun/Hono API.
 
----
+Frontend:
 
-### D5. Підтримка гаманців (wallet strategy)
+- `app/` на Vite, React 18, Tailwind, shadcn/Radix primitives, PWA.
+- `react-router-dom` для `/`, `/market/:address`, `/portfolio`.
+- wagmi/viem reads/writes, Circle passkey path through Modular Wallets.
 
-#### Option A: Dual-wallet — MetaMask (injected) + Circle Passkey (WebAuthn/smart account), абстраговані `useContractWrite` (обрано)
-| Dimension | Assessment |
-|-----------|------------|
-| UX reach | High — і «крипто-нативні», і користувачі без розширення |
-| Complexity | Medium — два кодові шляхи (EOA tx vs UserOperation) |
-| Coupling | Low — абстраговано одним хуком |
+Backend:
 
-**Pros:** Circle passkey = біометрія/WebAuthn без розширення, smart account з paymaster
-(газ-абстракція); MetaMask = звичний EVM-флоу; компоненти не знають про різницю.
-**Cons:** два шляхи підпису (UserOp через bundler vs `writeContractAsync`); passkey **не**
-експонує приватний ключ → **не годиться для деплою** (деплой лише з некастодіального EOA).
+- `server/` на Hono + Bun.
+- `/v1/markets` для user-created markets і server-side deploy.
+- `/v1/orders` legacy API ще існує, але поточний UI для limit orders використовує `OnChainLimitOrderBook`.
+- `/docs` і `/openapi.json` генеруються з OpenAPI routes.
 
-#### Option B: Лише MetaMask / injected
-**Pros:** простіше. **Cons:** відсікає користувачів без розширення; немає газ-абстракції.
+Rejected:
 
-#### Option C: Лише Circle Passkey
-**Cons:** не можна деплоїти контракти; залежність від Circle-інфраструктури.
-**Verdict:** dual — найкращий баланс охоплення й гнучкості.
+- Keep Next.js App Router: не відповідає Templars stack і створює інший backend model.
 
----
+## D5. Wallet strategy
 
-### D6. Створення кастомних ринків (server-side деплой)
+**Chosen:** dual wallet.
 
-#### Option A: API-роут `/api/create-market` деплоїть пару контрактів із серверним `PRIVATE_KEY` (обрано в sample)
-**Pros:** користувач створює ринок «у кілька кліків» без газу/деплою на своєму боці; seed-ліквідність
-автоматично.
-**Cons:** **сервер тримає ключ деплоєра** → серверна межа довіри; будь-який POST витрачає
-ARCT/газ деплоєра; немає rate-limit/авторизації в sample. **Це ключовий ризик** (див. розділ ризиків).
+- MetaMask/injected wallet через wagmi.
+- Circle Passkey smart account через `@circle-fin/modular-wallets-core`, WebAuthn і bundler/paymaster, якщо `VITE_CIRCLE_CLIENT_KEY` та `VITE_CIRCLE_CLIENT_URL` задані.
+- `useContractWrite` єдина точка write abstraction.
+- Для injected path `ensureArcChain` форсує Arc Testnet перед tx.
 
-#### Option B: Клієнтський деплой із гаманця користувача
-**Pros:** немає серверного ключа; користувач платить власний газ.
-**Cons:** складніший UX; passkey-користувачі не можуть деплоїти контракти напряму так само зручно.
-**Verdict:** для production — винести за auth/rate-limit або перейти на клієнтський деплой
-(Action Items).
+Trade-offs:
 
----
+- Кращий UX coverage.
+- Два signing paths і Circle infra dependency.
+- Circle passkey не підходить для root deploy, бо deploy scripts потребують EOA private key.
 
-### D7. Колатераль і газовий актив
+## D6. Market creation API
 
-#### Рішення: розділити **газ (нативний USDC)** і **колатераль (ARCT, TestnetERC20)** (обрано)
-**Pros:** ARCT вільно мінтиться через faucet/`allocateTo` → зручне тестування; газ окремо в USDC
-з Circle faucet; whitelisting колатералю через UMA `AddressWhitelist`.
-**Cons:** ARCT не має реальної вартості → **не для production**; потрібен реальний колатераль-токен
-(напр. справжній USDC) для мейннету.
+**Chosen:** server-side deploy through `POST /v1/markets`.
 
----
+Flow:
 
-## 4. Trade-off Analysis (ключове)
+1. Client sends `{ title }`.
+2. Server validates title.
+3. Server uses `PRIVATE_KEY`, `FINDER_ADDRESS`, `TIMER_ADDRESS`.
+4. Server checks deployer USDC balance.
+5. Server deploys `EventBasedPredictionMarket`, initializes OO request, deploys and seeds AMM, then deploys CLOB.
+6. Server prepends metadata to `data/markets.json`.
 
-| Напрям | Обрано | Головний trade-off |
-|---|---|---|
-| Резолюція | UMA OO V2 (optimistic) | Недовіреність ↔ складність bootstrap + Mock DVM на тестнеті |
-| Торгівля | Constant-product AMM | Проста миттєва ліквідність ↔ slippage / IL |
-| Деплой | Imperative + raw PK | Простота/менше залежностей ↔ немає HD/декларативності |
-| Гаманці | Dual + `useContractWrite` | Широке охоплення ↔ два шляхи підпису |
-| Custom markets | Server-side ключ | Зручний UX ↔ серверна межа довіри (ключ) |
-| Колатераль | ARCT (mintable) | Легке тестування ↔ нульова реальна вартість |
+Trade-offs:
 
-**Наскрізна нитка:** sample оптимізований під **demoability на тестнеті**, а не під production-security.
-Усі «зрізані кути» (Mock DVM, mintable collateral, серверний ключ, 1-хв liveness, fees=0) —
-свідомі тестнет-спрощення, які треба переглянути перед будь-яким мейннетом.
+- User can create markets without exporting their own deploy key.
+- Server key becomes a critical trust boundary.
+- No auth/rate-limit exists yet. This is acceptable only for controlled testnet usage.
 
----
+## D7. On-chain CLOB limit orders
 
-## 5. Consequences
+**Chosen:** escrowed on-chain order book in `OnChainLimitOrderBook`.
 
-**Що стає простіше:**
-- Відтворюваний деплой «з нуля» одним скриптом; усі адреси пишуться в `.env.local`.
-- Недовірена резолюція без owner-а; будь-хто може proposes/disputes/settle.
-- Однаковий UX для обох гаманців; компоненти не залежать від типу гаманця.
-- Безперервна торгівля та читабельна ймовірність із цін AMM.
+- Contract stores open order IDs by `(outcome, side)`.
+- Buy orders escrow collateral based on `amount * price / 1e18`.
+- Sell orders escrow outcome tokens.
+- `getOpenOrders` and `getOrders` power the UI order book.
+- `fillOrder` handles direct taker fills.
+- `matchOrders` handles crossed bid/ask pairs at seller ask price.
 
-**Що стає складніше / на що зважати:**
-- На тестнеті резолюція диспутів спирається на `MockOracleAncillary` (admin), а не на реальний DVM.
-- Серверний `PRIVATE_KEY` у `/api/create-market` — критична межа довіри; потрібні захисти.
-- AMM має проковзування й IL; ціна купівлі нелінійна (mint+swap).
-- 64-hex raw private key у `.env.local` — суворо не комітити; лише `.env.example` у git.
+Trade-offs:
 
-**Що доведеться переглянути (revisit) перед production:**
-- Замінити `MockOracleAncillary` на реальний UMA DVM / офіційний деплой OO.
-- Замінити ARCT на реальний колатераль; прибрати вільний mint.
-- Винести створення ринків за auth/rate-limit або клієнтський деплой.
-- Переглянути liveness (1 хв → реалістичні години/дні), bond-економіку, fees у Store.
-- Перейти на mnemonic/HD або KMS/HSM для ключів деплоєра.
+- Stronger execution guarantees than the previous JSON-backed order demo.
+- More gas and contract surface area.
+- Needs allowance UX for USDC and position tokens.
+- Needs a keeper/matcher process for automatic matching; the repo includes `npm run keeper` for testnet auto-matching of crossed books.
+- Current recorded base-market env may not have a CLOB address because those addresses were deployed before the CLOB addition.
 
----
+## Consequences
 
-## 6. Action Items
+What is simple now:
 
-1. [x] Склонувати репозиторій у `C:\arc predict Edge`, зберегти структуру.
-2. [x] `npm install`, `npm run compile` — зафіксувати версії/помилки (див. розділ нижче / deployment-plan).
-3. [x] Задокументувати компонентну/C4-діаграму — `docs/architecture-diagram.md`.
-4. [x] Скласти карту контрактів і межі довіри — `docs/smart-contract-map.md`.
-5. [x] Підготувати відтворюваний план деплою в Arc Testnet — `docs/deployment-plan.md`.
-6. [x] Виокремити розділ ризиків і безпеки — `docs/risks-and-security.md`.
-7. [ ] (Pre-prod) Замінити Mock DVM на реальний UMA-оракул; прибрати mintable-колатераль.
-8. [ ] (Pre-prod) Захистити `/api/create-market` (auth, rate-limit) або клієнтський деплой.
-9. [ ] (Pre-prod) Винести ключ деплоєра в KMS/HSM; розглянути mnemonic/HD-derivation.
-10. [ ] Додати юніт/інтеграційні тести (`npm run test:contracts`) для lifecycle і AMM-інваріантів.
+- Reproducible testnet deploy from one Hardhat script.
+- Vite/Hono split mirrors the current codebase and README.
+- USDC-only product surface is clearer for users than ARCT test collateral.
+- CLOB limit orders are escrowed on-chain instead of being only JSON metadata.
 
----
+What must be revisited before production:
 
-## 7. Notes (зафіксовані факти середовища)
+- Replace Mock DVM with real oracle/governance path.
+- Increase liveness and design realistic bond/reward economics.
+- Add AMM slippage protection.
+- Expand CLOB gas/security review and define production keeper policy.
+- Protect `POST /v1/markets` with auth, quotas, rate-limit, or move deploy to user wallet.
+- Replace JSON market metadata storage with a database if the API becomes public.
+- Add tests for lifecycle, AMM invariants, oracle callbacks, chain guard, and order state transitions.
 
-- Solidity `0.8.17`, optimizer `runs=1_000_000` (`hardhat.config.ts`).
-- Контракти `EventBasedPredictionMarket.sol` / `PredictionMarketAMM.sol` — ліцензія **AGPL-3.0-only**;
-  решта (scripts, lib, config) — **Apache-2.0** (Circle).
-- Параметри ринку за замовчуванням (deploy.ts): liveness `60s`, proposerReward `10 ARCT`,
-  proposerBond `100 ARCT`, AMM fee `200 bps (2%)`, seed `1000 ARCT`, deployer mint `100000 ARCT`.
-- Resolution values: `1e18`=YES, `0`=NO, `5e17`=Undetermined.
-- RPC за замовчуванням: `https://rpc.testnet.arc.network`; explorer: `https://testnet.arcscan.app`.
+## Current parameters
 
-> Пов'язані документи: [architecture-diagram.md](architecture-diagram.md),
-> [smart-contract-map.md](smart-contract-map.md), [deployment-plan.md](deployment-plan.md),
-> [risks-and-security.md](risks-and-security.md), [ROADMAP.md](ROADMAP.md).
-</content>
-</invoke>
+| Parameter | Value |
+|---|---|
+| Chain | Arc Testnet, chainId `5042002` |
+| RPC fallback | `https://rpc.testnet.arc.network` |
+| Collateral ERC-20 | `0x3600000000000000000000000000000000000000` |
+| Collateral decimals | 6 |
+| Native gas display | USDC, 18 decimals |
+| Base market | `BTC100K` |
+| Question | `Will Bitcoin exceed $100,000 before June 1, 2026?` |
+| Market liveness | 60 seconds |
+| OO default liveness | 7200 seconds |
+| Proposer reward | 0.1 USDC |
+| Proposer bond | 1 USDC |
+| AMM fee | 200 bps |
+| Seed liquidity | 5 USDC |
+| CLOB price scale | `1e18` |
+| Resolution values | `1e18` YES, `0` NO, `5e17` Undetermined |

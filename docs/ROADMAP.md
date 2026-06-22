@@ -1,111 +1,240 @@
-# Роадмап деплою — Prediction Market на Arc Testnet
+# Roadmap Predict-Edge
 
-Чіткий фазовий роадмап від локального середовища до робочого dApp на Arc Testnet і далі.
-Кожна фаза має **мету**, **кроки**, **контрольну точку (gate)** і **rollback**. Поточний статус
-позначено: ✅ зроблено · ⏳ наступне · 🔜 опційно/pre-prod.
+Roadmap описує не маркетингові плани, а технічні фази для поточної архітектури:
+Hardhat contracts, Bun/Hono API, Vite frontend, USDC collateral і on-chain CLOB orders.
 
 ```mermaid
 graph LR
-    P0[Phase 0<br/>Local Env] --> P1[Phase 1<br/>Compile]
-    P1 --> P2[Phase 2<br/>Fund Gas]
-    P2 --> P3[Phase 3<br/>Deploy Contracts]
-    P3 --> P4[Phase 4<br/>Run dApp]
-    P4 --> P5[Phase 5<br/>E2E Verify]
-    P5 --> P6[Phase 6<br/>Custom Markets]
-    P6 --> P7[Phase 7<br/>Pre-Prod Hardening]
+    P0["P0 Local setup"] --> P1["P1 Contracts compile"]
+    P1 --> P2["P2 Testnet funding"]
+    P2 --> P3["P3 Deploy contracts"]
+    P3 --> P4["P4 Run API + app"]
+    P4 --> P5["P5 Trading smoke"]
+    P5 --> P6["P6 Market/order UX"]
+    P6 --> P7["P7 Hardening"]
+    P7 --> P8["P8 Production redesign"]
 ```
 
----
+## P0. Local setup
 
-## Phase 0 — Локальне середовище ✅
+Goal:
 
-- **Мета:** робочий клон і залежності в `C:\arc predict Edge`.
-- **Кроки:** `git clone` → `npm install`.
-- **Gate:** `added 2197 packages`, exit 0. ✅
-- **Rollback:** видалити `node_modules`, `npm cache clean --force`, повтор.
+- Install dependencies for root, `app`, and `server`.
 
-## Phase 1 — Компіляція контрактів ✅
+Commands:
 
-- **Мета:** артефакти контрактів і typings.
-- **Кроки:** `npm run compile`.
-- **Gate:** `Compiled 23 Solidity files successfully`, `86 typings`. ✅
-- **Rollback:** `npx hardhat clean` → повтор compile.
+```bash
+npm install
+cd app && bun install && cd ..
+cd server && bun install && cd ..
+```
 
-## Phase 2 — Поповнення газу ✅
+Gate:
 
-- **Мета:** деплоєр має нативний USDC на газ.
-- **Кроки:** заповнити `.env.local` (`PRIVATE_KEY`, RPC); запросити USDC з
-  [Circle faucet](https://faucet.circle.com/) на адресу деплоєра.
-- **Gate:** баланс деплоєра > 0 на [Arcscan](https://testnet.arcscan.app). ✅ (поповнено до 20 USDC)
-- **Rollback:** повторний запит з faucet; перевірити правильність мережі/адреси.
-- **⚠️ Чек безпеки:** ключ — некастодіальний тестнет-EOA; `.env.local` НЕ в git. ✅
-- **Урок:** перша спроба з 0.13 USDC впала на півдорозі — повний деплой коштує ~0.39 USDC; тримайте буфер.
+- Root Hardhat dependencies installed.
+- `app/node_modules` and `server/node_modules` installed.
 
-## Phase 3 — Деплой контрактів ✅
+Rollback:
 
-- **Мета:** UMA-стек + market + AMM у Arc Testnet, адреси в `.env.local`.
-- **Кроки:** `npm run deploy` (7 фаз скрипта; див. [deployment-plan.md](deployment-plan.md) §5).
-- **Gate:** `=== Deployment Summary ===` з усіма адресами; `.env.local` дописано. ✅
-  Адреси зафіксовано в [deployed-addresses.md](deployed-addresses.md).
-- **Rollback:** деплой ідемпотентний на рівні нового набору контрактів — повторний `npm run deploy`
-  деплоїть свіжий стек і перезапише адреси. Старі контракти лишаються на чейні (тестнет — безкоштовно).
-- **Типові збої:** «no balance» → Phase 2; «stuck pending» → скрипт сам чистить nonce; BAD_DATA на
-  view-викликах → вбудований `retryCall` (RPC-затримка).
+- Delete relevant `node_modules` and reinstall.
 
-## Phase 4 — Запуск dApp ✅
+## P1. Contracts compile
 
-- **Мета:** dev-сервер віддає UI з живими даними.
-- **Кроки:** `npm run dev` → http://localhost:3000.
-- **Gate:** `Ready`, `GET / 200`, `GET /market/… 200`. ✅ (з реальними адресами)
-- **Verify:** `node --experimental-strip-types scripts/verify-deploy.ts` → AMM 1000/1000, ціни 0.5/0.5.
-- **Rollback:** зупинити процес; перевірити порт 3000; `rm -rf .next` → повтор.
+Goal:
 
-## Phase 5 — E2E-перевірка ⏳
+- Build Solidity artifacts and TypeChain types.
 
-- **Мета:** повний життєвий цикл працює на тестнеті.
-- **Кроки (у браузері):** Connect → Faucet (mint ARCT) → Approve → Buy/Sell (AMM) →
-  Resolve (propose → liveness 60s → settle) → Redeem.
-- **Gate:** усі 6 кроків проходять; події видно в Arcscan; баланси змінюються коректно.
-- **Rollback:** для нового циклу — `npm run deploy` (свіжий ринок).
+Command:
 
-## Phase 6 — Кастомні ринки ⏳
+```bash
+npm run compile
+```
 
-- **Мета:** створення ринків з UI.
-- **Кроки:** «Create Market» → YES/NO питання → `/api/create-market` деплоїть пару + seed 1000 ARCT.
-- **Gate:** новий ринок у гріді, торгований; запис у `data/markets.json`.
-- **Rollback:** `npm run reset` — прибирає користувацькі ринки (BTC-ринок не чіпає).
-- **⚠️ Чек безпеки:** ендпойнт використовує серверний `PRIVATE_KEY` — не виставляти публічно без захисту.
+Gate:
 
-## Phase 7 — Hardening перед production 🔜 (поза тестнетом)
+- `EventBasedPredictionMarket`, `PredictionMarketAMM`, and `OnChainLimitOrderBook` compile with Solidity 0.8.17.
+- UMA/OpenZeppelin dependencies resolve.
 
-Перелік із [ADR-001](ADR-001-architecture.md) Action Items 7–10 та
-[risks-and-security.md](risks-and-security.md):
+Rollback:
 
-1. 🔜 Замінити `MockOracleAncillary` на реальний UMA DVM / офіційний OO-деплой; realistic `liveness`.
-2. 🔜 Замінити mintable ARCT на реальний колатераль; прибрати вільний `allocateTo`.
-3. 🔜 Захистити `/api/create-market` (auth + rate-limit) або перейти на клієнтський деплой.
-4. 🔜 Додати slippage-protection (`minOut` + deadline) в AMM.
-5. 🔜 Ключі деплоєра → KMS/HSM або mnemonic/HD-derivation.
-6. 🔜 Юніт/інтеграційні тести lifecycle і AMM-інваріантів (`npm run test:contracts`).
-7. 🔜 Зовнішній аудит контрактів перед мейннетом.
+- `npx hardhat clean`, then compile again.
 
----
+## P2. Testnet funding
 
-## Зведена таблиця контрольних точок
+Goal:
 
-| Phase | Gate-критерій | Команда перевірки |
+- Fund deployer with Arc Testnet USDC for gas and collateral.
+
+Steps:
+
+1. Create or select EOA deployer.
+2. Put `PRIVATE_KEY` in root `.env.local`.
+3. Set RPC in `NEXT_PUBLIC_ALCHEMY_RPC_URL` or use fallback.
+4. Fund address from [Circle faucet](https://faucet.circle.com/).
+
+Gate:
+
+- Deployer has enough USDC for gas, proposer reward, and AMM seed.
+
+Rollback:
+
+- Re-fund from faucet or switch to another testnet EOA.
+
+## P3. Deploy contracts
+
+Goal:
+
+- Deploy UMA infrastructure, base market, AMM, and CLOB to Arc Testnet.
+
+Commands:
+
+```bash
+npm run deploy
+npm run verify-deploy
+npm run sync-env
+```
+
+Gate:
+
+- Root `.env.local` has deployed `NEXT_PUBLIC_*` addresses.
+- `app/.env.local` has matching `VITE_*` addresses.
+- Verify script reports `priceRequested=true`, AMM initialized, reserves near `5/5 USDC`.
+
+Rollback:
+
+- Re-run deploy with funded key. Old testnet contracts remain on-chain, new addresses replace env.
+
+## P4. Run API and app
+
+Goal:
+
+- Full local runtime with frontend and API.
+
+Commands:
+
+```bash
+npm run dev:api
+npm run dev:app
+```
+
+Gate:
+
+- Hono listens on `http://localhost:8787`.
+- Scalar docs open at `http://localhost:8787/docs`.
+- Vite app opens at `http://localhost:5173`.
+- Frontend `/v1` calls proxy to backend.
+
+Rollback:
+
+- Check ports 8787/5173, env values, and rerun `npm run sync-env`.
+
+## P5. Trading smoke
+
+Goal:
+
+- Validate core market lifecycle from UI.
+
+Steps:
+
+1. Connect MetaMask or configured Circle Passkey.
+2. Confirm wallet is on Arc Testnet.
+3. Open live market.
+4. Approve USDC.
+5. Buy YES/NO.
+6. Sell YES/NO.
+7. Propose outcome.
+8. Settle oracle after test Timer jump.
+9. Redeem positions.
+
+Gate:
+
+- Transactions land on Arc Testnet.
+- Balances and reserves update in UI.
+- Arcscan shows emitted events.
+
+Rollback:
+
+- Redeploy a clean testnet market if lifecycle state is no longer useful.
+
+## P6. Market and order UX
+
+Goal:
+
+- Validate app-specific features beyond base AMM.
+
+Implemented:
+
+- Create custom market via `POST /v1/markets`.
+- Store custom market metadata in `data/markets.json`.
+- Place escrowed on-chain limit order via `OnChainLimitOrderBook`.
+- Show CLOB open orders and AMM depth reference in `OrderBook`.
+- Fill/cancel/match CLOB orders through wallet transactions.
+- Auto-match crossed CLOB orders with `npm run keeper`.
+- Show on-chain AMM/CLOB trade history on market detail pages.
+- Show positions in `/portfolio`.
+- Show aggregate portfolio value chart in `/portfolio`.
+
+Gate:
+
+- New market appears in grid.
+- Order appears in order book.
+- Fill/cancel/match transactions are visible in CLOB events and `TradeHistory`.
+
+Rollback:
+
+- `npm run reset` for markets.
+- Cancel CLOB orders on-chain if possible or redeploy a fresh testnet market/CLOB.
+- Clear `data/orders.json` only if testing legacy `/v1/orders`.
+
+## P7. Hardening
+
+Goal:
+
+- Make the testnet service safer before broader exposure.
+
+Checklist:
+
+- [ ] Add auth and rate-limit to `POST /v1/markets`.
+- [ ] Add server-side quotas per user/IP/wallet.
+- [ ] Replace raw file writes with a DB or transactional store.
+- [ ] Remove legacy `ARCT` naming in code where it now means USDC.
+- [x] Fix `useClob.ts` viem typecheck path.
+- [x] Add tests for `OnChainLimitOrderBook` partial fills, cancellation, residual escrow and `matchOrders`.
+- [x] Implement testnet keeper/matcher script.
+- [ ] Define production keeper monitoring and failure policy.
+- [ ] Add contract tests for AMM math, settlement, callbacks, and decimals.
+- [ ] Add frontend tests for chain guard and amount formatting.
+- [ ] Add API tests for market/order validation.
+- [ ] Add CI for root, app, and server.
+- [ ] Reconcile legacy `/v1/orders` code with the current CLOB UI path.
+
+## P8. Production redesign
+
+Goal:
+
+- Move from testnet demo to a defensible production architecture.
+
+Required decisions:
+
+- Real oracle/DVM or accepted resolution governance.
+- Production liveness and bond economics.
+- AMM slippage parameters and contract-level `minOut`/deadline.
+- CLOB keeper/indexer strategy.
+- Durable database and audit trail.
+- Key management through KMS/HSM or user-paid deploy model.
+- External audit for contracts.
+- Operational monitoring and incident response.
+
+## Current status table
+
+| Phase | Status | Notes |
 |---|---|---|
-| 0 | 2197 packages, exit 0 | `npm install` |
-| 1 | 23 файли скомпільовано | `npm run compile` |
-| 2 | balance > 0 | Arcscan / faucet |
-| 3 | Summary + `.env.local` адреси | `npm run deploy` |
-| 4 | `GET / 200` | `npm run dev` |
-| 5 | повний lifecycle | браузер + Arcscan |
-| 6 | ринок у гріді | UI «Create Market» |
-| 7 | pre-prod чеклист | ADR Action Items |
-
-> **DoD виконано (тестнет, локально):** проєкт збирається, контракти компілюються, dev-сервер
-> піднімається без помилок; ADR + діаграма + карта контрактів + план деплою + ризики готові.
-> Залишок (Phase 2/3/5/6) вимагає приватного ключа деплоєра й газу — виконується оператором за
-> цим роадмапом «з нуля».
-</content>
+| P0 Local setup | Done locally | Root/app/server dependency sets exist |
+| P1 Compile | Expected working | Verify with `npm run compile` |
+| P2 Funding | Operator-dependent | Requires faucet USDC |
+| P3 Deploy | Done for documented addresses | See [deployed-addresses.md](deployed-addresses.md) |
+| P4 Runtime | Implemented | API `:8787`, app `:5173` |
+| P5 Trading smoke | Needs periodic manual check | Depends on wallet and testnet state |
+| P6 Market/order UX | Implemented for testnet | Current recorded base env may need redeploy/sync for CLOB address |
+| P7 Hardening | Pending | Needed before public testnet |
+| P8 Production redesign | Pending | Needed before mainnet |

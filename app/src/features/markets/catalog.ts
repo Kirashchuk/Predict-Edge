@@ -1,4 +1,4 @@
-import { MARKET_ADDRESS, AMM_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { MARKET_ADDRESS, AMM_ADDRESS, CLOB_ADDRESS } from '@/shared/lib/contracts/addresses';
 
 export type MarketCategory =
   | 'Crypto'
@@ -14,6 +14,7 @@ export interface MarketEntry {
   /** On-chain market address; undefined for static demo markets. */
   address?: string;
   ammAddress?: string;
+  clobAddress?: string;
   /** Static probability (0..1) for demo markets without a live AMM. */
   staticYes?: number;
   live: boolean;
@@ -35,6 +36,7 @@ export const STATIC_MARKETS: MarketEntry[] = [
     category: 'Crypto',
     address: MARKET_ADDRESS,
     ammAddress: AMM_ADDRESS,
+    clobAddress: CLOB_ADDRESS,
     live: true,
   },
   // --- Crypto ---

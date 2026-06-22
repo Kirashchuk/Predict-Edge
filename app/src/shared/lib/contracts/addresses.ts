@@ -13,6 +13,7 @@ export const USDC_ADDRESS: Address =
 
 export const MARKET_ADDRESS = get(import.meta.env.VITE_MARKET_ADDRESS);
 export const AMM_ADDRESS = get(import.meta.env.VITE_AMM_ADDRESS);
+export const CLOB_ADDRESS = get(import.meta.env.VITE_CLOB_ADDRESS);
 export const OO_V2_ADDRESS = get(import.meta.env.VITE_OO_V2_ADDRESS);
 export const FINDER_ADDRESS = get(import.meta.env.VITE_FINDER_ADDRESS);
 export const TIMER_ADDRESS = get(import.meta.env.VITE_TIMER_ADDRESS);

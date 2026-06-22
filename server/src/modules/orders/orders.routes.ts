@@ -32,7 +32,7 @@ const createOrderRoute = createRoute({
   method: 'post',
   path: '/orders',
   tags: ['orders'],
-  summary: 'Place an off-chain limit order (executes against the AMM when crossed)',
+  summary: 'Place a legacy file-backed limit order (current UI uses the on-chain CLOB)',
   request: {
     body: {
       content: {

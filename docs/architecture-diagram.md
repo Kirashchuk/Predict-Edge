@@ -1,294 +1,276 @@
-# Архітектурна діаграма — Prediction Market на Arc Testnet
+# Архітектурні діаграми
 
-Документ містить **C4-діаграми** (Context → Container → Component) і **потоки даних** для чотирьох
-сценаріїв: *create market*, *trade*, *resolve*, *redeem*. Усі діаграми — у Mermaid (рендеряться на
-GitHub та у VS Code з відповідним розширенням).
+Діаграми відображають поточну реалізацію: Vite SPA, Hono API, Hardhat-deployed contracts,
+USDC collateral, UMA OO V2 і escrowed on-chain CLOB limit orders.
 
-> Легенда меж довіри (trust boundaries) і деталі функцій — у [smart-contract-map.md](smart-contract-map.md).
-
----
-
-## 1. C4 Level 1 — System Context
+## C4 Level 1: System Context
 
 ```mermaid
 graph TB
-    User([Користувач<br/>трейдер / proposer / creator])
-    Deployer([Deployer<br/>некастодіальний EOA])
+    User["User / trader / proposer"]
+    Deployer["Deployer EOA"]
+    CircleFaucet["Circle faucet<br/>Arc Testnet USDC"]
+    CircleWallets["Circle Modular Wallets<br/>passkey, bundler, paymaster"]
+    Arc["Arc Testnet<br/>chainId 5042002<br/>native gas: USDC"]
+    Arcscan["Arcscan explorer"]
 
-    subgraph "Prediction Market on Arc (тестнет-система)"
-        APP[Next.js dApp<br/>+ Smart Contracts]
+    subgraph System["Predict-Edge"]
+        App["Vite React SPA"]
+        Api["Bun/Hono API"]
+        Contracts["Prediction market contracts<br/>UMA OO V2 + AMM + CLOB"]
+        Data["JSON data stores<br/>market metadata, legacy orders"]
     end
 
-    Circle[Circle Faucet<br/>тестовий USDC на газ]
-    CircleW[Circle Modular Wallets<br/>passkey / bundler / paymaster]
-    Arc[(Arc Testnet L1<br/>chainId 5042002<br/>gas = USDC)]
-    Arcscan[Arcscan<br/>explorer]
-
-    User -->|торгує, proposes, disputes, settle, redeem| APP
-    Deployer -->|деплоїть контракти, сідить ліквідність| APP
-    User -->|отримує USDC на газ| Circle
-    APP -->|MetaMask injected / Circle passkey UserOp| CircleW
-    APP -->|read/write tx| Arc
-    CircleW -->|bundles UserOp, спонсорує газ| Arc
-    User -->|перевіряє tx/адреси| Arcscan
+    User --> App
+    App --> Api
+    App --> Contracts
+    Api --> Contracts
+    Api --> Data
+    Deployer --> Contracts
+    User --> CircleFaucet
+    App --> CircleWallets
+    CircleWallets --> Arc
+    Contracts --> Arc
+    User --> Arcscan
 ```
 
----
-
-## 2. C4 Level 2 — Containers
+## C4 Level 2: Containers
 
 ```mermaid
 graph TB
-    subgraph Browser["Браузер користувача"]
-        UI[Next.js App Router UI<br/>React 19 + Tailwind + shadcn/ui]
-        WAGMI[Wagmi + Viem<br/>config: arcTestnet]
-        WCTX[WalletContext<br/>dual-wallet state]
+    subgraph Browser["Browser"]
+        UI["app/<br/>Vite + React 18 + Tailwind"]
+        Router["react-router<br/>/, /market/:address, /portfolio"]
+        Wallet["WalletProvider<br/>MetaMask + Circle Passkey"]
+        Query["TanStack Query"]
     end
 
-    subgraph Server["Next.js сервер (Node)"]
-        APIM[/api/markets<br/>GET список ринків/]
-        APIC[/api/create-market<br/>POST деплой пари контрактів/]
-        DATA[(data/markets.json)]
-        ENV[[.env.local<br/>PRIVATE_KEY + адреси]]
+    subgraph Api["server/ on Bun"]
+        Hono["OpenAPIHono app"]
+        Markets["/v1/markets<br/>list + create market"]
+        Orders["/v1/orders<br/>legacy file-backed orders"]
+        Docs["/docs + /openapi.json"]
+        Stores["data/markets.json<br/>data/orders.json"]
     end
 
-    subgraph Chain["Arc Testnet (chainId 5042002)"]
-        MKT[EventBasedPredictionMarket]
-        AMM[PredictionMarketAMM]
-        TOKENS[ARCT / Long PLT / Short PST]
-        UMA[UMA-стек:<br/>OO V2, Finder, Whitelists,<br/>Store, MockOracle, Timer]
+    subgraph Chain["Arc Testnet"]
+        USDC["USDC ERC-20<br/>0x3600...0000<br/>6 decimals"]
+        Market["EventBasedPredictionMarket"]
+        AMM["PredictionMarketAMM<br/>x*y=k, 2 percent fee"]
+        CLOB["OnChainLimitOrderBook<br/>escrowed limit orders"]
+        Tokens["PLT / PST<br/>YES / NO position tokens"]
+        UMA["UMA stack<br/>Finder, whitelists, Store,<br/>MockOracle, OO V2, Timer"]
     end
 
-    CircleInfra[Circle Modular Wallets<br/>passkey transport + bundler + paymaster]
-
-    UI --> WAGMI --> Chain
-    UI --> WCTX
-    WCTX -->|circle UserOp| CircleInfra --> Chain
-    UI -->|fetch| APIM --> DATA
-    UI -->|fetch| APIC
-    APIC -->|viem walletClient<br/>підпис PRIVATE_KEY| Chain
-    APIC --> ENV
-    APIC --> DATA
-    AMM --> MKT --> UMA
-    MKT --> TOKENS
+    UI --> Router
+    UI --> Wallet
+    UI --> Query
+    Query --> Markets
+    Query --> Orders
+    Hono --> Markets
+    Hono --> Orders
+    Hono --> Docs
+    Markets --> Stores
+    Orders --> Stores
+    Markets -->|ethers v6 deploy| Market
+    Markets -->|ethers v6 deploy| AMM
+    Markets -->|ethers v6 deploy| CLOB
+    Wallet -->|wagmi or UserOperation| AMM
+    Wallet -->|wagmi or UserOperation| CLOB
+    Wallet -->|propose, dispute, settle| UMA
+    AMM --> Market
+    CLOB --> Market
+    CLOB --> Tokens
+    CLOB --> USDC
+    Market --> Tokens
+    Market --> USDC
+    Market --> UMA
 ```
 
----
-
-## 3. C4 Level 3 — Components (frontend hooks ↔ контракти)
+## C4 Level 3: Frontend features
 
 ```mermaid
 graph LR
-    subgraph Hooks["hooks/"]
-        UCW[useContractWrite<br/>єдина абстракція запису]
-        UMS[useMarketState / useMarketActions]
-        UOS[useOracleState / useOracleActions]
-        UAS[useAMMState / useAMMTrade / useAMMCalc / useAMMApprovals]
-        UTB[useTokenBalances]
+    subgraph App["app/src"]
+        Shell["app/App.tsx<br/>providers + routes"]
+        Layout["app/Layout.tsx"]
+        Markets["features/markets<br/>grid, detail, create, charts"]
+        Trading["features/trading<br/>buy, sell, limit, resolve, order book"]
+        WalletFeature["features/wallet<br/>WalletContext, wagmi, useContractWrite"]
+        Portfolio["features/portfolio"]
+        Shared["shared/lib + shared/ui"]
     end
 
-    subgraph Lib["lib/"]
-        ABIS[contracts/abis/*<br/>market, amm, oracle, erc20, timer]
-        ADDR[contracts/addresses.ts<br/>з env vars]
-        CHAIN[chain.ts / wagmi.ts]
-        CIRCLE[circle.ts<br/>passkey transport, gas estimate]
+    subgraph External["External surfaces"]
+        Api["Hono /v1 API"]
+        Chain["Arc contracts"]
+        Circle["Circle passkey infra"]
     end
 
-    subgraph Contracts["Arc Testnet"]
-        MKT[EventBasedPredictionMarket]
-        AMM[PredictionMarketAMM]
-        OO[OptimisticOracleV2]
-        ERC[ARCT / PLT / PST]
-    end
-
-    UMS --> UCW
-    UOS --> UCW
-    UAS --> UCW
-    UCW -->|injected: writeContractAsync| MKT
-    UCW -->|injected| AMM
-    UCW -->|circle: sendUserOperation + paymaster| AMM
-    UOS --> OO
-    UTB --> ERC
-    UCW --> ABIS
-    UCW --> ADDR
-    UCW --> CIRCLE
-    UAS --> AMM
-    UMS --> MKT
+    Shell --> Layout
+    Shell --> Markets
+    Shell --> Portfolio
+    Markets --> Trading
+    Trading --> WalletFeature
+    Portfolio --> Markets
+    Markets --> Api
+    Trading --> Api
+    WalletFeature --> Chain
+    WalletFeature --> Circle
+    Markets --> Shared
+    Trading --> Shared
 ```
 
-`useContractWrite` — ключова точка абстракції: для `walletType === "circle"` формує **UserOperation**
-через bundler з `paymaster: true` (газ спонсорується), інакше — звичайний `writeContractAsync` (MetaMask/injected).
-
----
-
-## 4. Потоки даних (sequence)
-
-### 4.1 Create market (server-side деплой кастомного ринку)
+## Sequence: deploy base market
 
 ```mermaid
 sequenceDiagram
-    actor U as Користувач
-    participant UI as CreateMarketDialog
-    participant API as /api/create-market
-    participant DK as Deployer key (.env.local)
-    participant CH as Arc Testnet
-    participant DB as data/markets.json
+    participant Op as Operator
+    participant HH as Hardhat scripts/deploy.ts
+    participant UMA as UMA artifacts
+    participant USDC as Arc USDC ERC-20
+    participant MKT as EventBasedPredictionMarket
+    participant AMM as PredictionMarketAMM
+    participant CLOB as OnChainLimitOrderBook
+    participant Env as root .env.local
 
-    U->>UI: вводить YES/NO питання
-    UI->>API: POST { title }
-    API->>DK: privateKeyToAccount(PRIVATE_KEY)
-    API->>CH: (за потреби) ARCT.allocateTo(deployer)
-    API->>CH: deploy EventBasedPredictionMarket(question, ARCT, finder, timer, reward, liveness, bond)
-    API->>CH: ARCT.approve(market, reward) + market.initializeMarket()
-    Note over CH: market → OO.requestPrice(YES_OR_NO_QUERY)
-    API->>CH: deploy PredictionMarketAMM(market, 200bps)
-    API->>CH: ARCT.approve(amm, 1000) + amm.initialize(1000)
-    Note over CH: amm → market.create(1000) → mint 1000 PLT+PST, reserves=1000/1000
-    API->>DB: append { address, ammAddress, title }
-    API-->>UI: { success, market }
+    Op->>HH: npm run deploy
+    HH->>UMA: deploy Timer, Finder, whitelists, Store, MockOracle, OO V2
+    HH->>UMA: register implementations in Finder
+    HH->>UMA: whitelist YES_OR_NO_QUERY and USDC
+    HH->>USDC: check deployer balance
+    HH->>MKT: deploy market(question, USDC, finder, timer, reward, liveness, bond)
+    HH->>USDC: approve market for proposer reward
+    HH->>MKT: initializeMarket()
+    MKT->>UMA: requestPrice + setEventBased + callbacks
+    HH->>AMM: deploy AMM(market, 200 bps)
+    HH->>USDC: approve AMM for 5 USDC
+    HH->>AMM: initialize(5 USDC)
+    AMM->>MKT: create(5 USDC)
+    MKT-->>AMM: mint PLT + PST reserves
+    HH->>CLOB: deploy CLOB(market)
+    HH->>Env: write NEXT_PUBLIC_* addresses
 ```
 
-### 4.2 Trade — Buy YES через AMM
+## Sequence: run app and API locally
 
 ```mermaid
 sequenceDiagram
-    actor U as Користувач
-    participant UI as BuyTab
-    participant H as useAMMTrade / useContractWrite
+    participant Dev as Developer
+    participant Sync as scripts/sync-env.ts
+    participant Api as Bun/Hono server
+    participant App as Vite dev server
+
+    Dev->>Sync: npm run sync-env
+    Sync-->>Dev: writes app/.env.local with VITE_*
+    Dev->>Api: npm run dev:api
+    Api-->>Dev: listens on :8787
+    Dev->>App: npm run dev:app
+    App-->>Dev: listens on :5173, proxies /v1 to :8787
+```
+
+## Sequence: buy YES through AMM
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant UI as TradingPanel
+    participant W as useContractWrite
+    participant USDC as USDC
     participant AMM as PredictionMarketAMM
     participant MKT as EventBasedPredictionMarket
-    participant T as ARCT / PLT / PST
+    participant YES as PLT
 
-    U->>UI: вводить суму USDC(ARCT), бачить calcBuyYes preview
-    UI->>H: approve ARCT → AMM (за потреби)
-    UI->>H: buyYes(amount)
-    H->>AMM: tx (injected) або UserOp (circle + paymaster)
-    AMM->>T: ARCT.transferFrom(user, amm, amount)
-    AMM->>MKT: create(amount)  %% mint amount PLT + amount PST до AMM
-    MKT->>T: mint PLT, PST → AMM
-    Note over AMM: swap No→Yes за x*y=k, fee 2%<br/>reserveYes -= swapYesOut; reserveNo += amount
-    AMM->>T: PLT.transfer(user, amount + swapYesOut)
-    AMM-->>U: подія BuyYes(user, amount, yesOut)
+    U->>UI: enter USDC amount
+    UI->>AMM: calcBuyYes(amount)
+    UI->>W: approve USDC if allowance is low
+    W->>USDC: approve(AMM, max)
+    UI->>W: buyYes(amount)
+    W->>AMM: tx via MetaMask or Circle UserOperation
+    AMM->>USDC: transferFrom(user, AMM, amount)
+    AMM->>MKT: create(amount)
+    MKT-->>AMM: mint YES + NO tokens
+    AMM->>AMM: swap NO into pool, compute YES out with fee
+    AMM->>YES: transfer(user, yesOut)
 ```
 
-### 4.3 Resolve — Propose → (Dispute) → Settle через UMA OO V2
+## Sequence: create custom market
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant Dialog as CreateMarketDialog
+    participant Api as POST /v1/markets
+    participant Key as PRIVATE_KEY
+    participant Chain as Arc Testnet
+    participant Store as data/markets.json
+
+    U->>Dialog: submit title
+    Dialog->>Api: POST { title }
+    Api->>Key: load deployer EOA
+    Api->>Chain: check USDC balance
+    Api->>Chain: deploy EventBasedPredictionMarket
+    Api->>Chain: approve reward + initializeMarket
+    Api->>Chain: deploy AMM + seed 5 USDC
+    Api->>Store: prepend market metadata
+    Api-->>Dialog: { success: true, market }
+```
+
+## Sequence: on-chain CLOB limit order
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant UI as LimitForm / OrderBook
+    participant W as useContractWrite
+    participant USDC as USDC
+    participant TOK as PLT / PST
+    participant CLOB as OnChainLimitOrderBook
+
+    U->>UI: select side, outcome, price, size
+    alt buy order
+        UI->>W: approve USDC if needed
+        W->>USDC: approve(CLOB, max)
+    else sell order
+        UI->>W: approve PLT/PST if needed
+        W->>TOK: approve(CLOB, max)
+    end
+    UI->>W: placeLimitOrder(side, outcome, price, amount)
+    W->>CLOB: tx via MetaMask or Circle UserOperation
+    CLOB->>USDC: escrow collateral for buy
+    CLOB->>TOK: escrow outcome tokens for sell
+    UI->>CLOB: getOpenOrders + getOrders
+    U->>UI: fill/cancel/match
+    UI->>CLOB: fillOrder, cancelOrder, or matchOrders
+```
+
+## Sequence: resolve and redeem
 
 ```mermaid
 sequenceDiagram
     actor P as Proposer
-    actor D as Disputer (опційно)
-    participant UI as ResolveTab
+    actor D as Disputer
+    actor U as Position holder
+    participant UI as Resolve tab
     participant OO as OptimisticOracleV2
+    participant Timer as Timer
     participant MKT as EventBasedPredictionMarket
-    participant DVM as MockOracleAncillary (DVM-замінник)
+    participant DVM as MockOracleAncillary
+    participant USDC as USDC
 
-    Note over MKT,OO: initializeMarket() вже зробив requestPrice (event-based, callbacks on)
-    P->>OO: proposePrice(1e18=YES | 0=NO | 5e17=Undet) + bond
-    alt Немає диспуту протягом liveness (60s)
-        P->>OO: settle()
-        OO->>MKT: priceSettled(identifier, ts, ancillary, price)
-        Note over MKT: settlementPrice = 1e18|5e17|0<br/>receivedSettlementPrice = true
-    else Диспут протягом liveness
-        D->>OO: disputePrice() + matching bond
-        OO->>MKT: priceDisputed(...)  %% callback
-        MKT->>OO: re-requestPrice(new timestamp)  %% event-based: нова ітерація
-        OO->>DVM: ескалація на DVM
-        Note over DVM: admin pushPrice (тестнет-замінник голосування)
-        P->>OO: settle() після резолюції DVM
+    P->>UI: propose YES / NO / UNDET
+    UI->>Timer: setCurrentTime(now) on testnet
+    UI->>OO: proposePrice(...)
+    alt no dispute
+        UI->>Timer: jump past expiration
+        UI->>OO: settle(...)
         OO->>MKT: priceSettled(...)
+    else disputed
+        D->>OO: disputePrice(...)
+        OO->>MKT: priceDisputed(...)
+        MKT->>OO: re-request price with new timestamp
+        OO->>DVM: escalate to mock DVM
     end
+    U->>MKT: settle(longTokens, shortTokens)
+    MKT->>USDC: transfer collateral by settlementPrice
 ```
-
-### 4.4 Redeem — отримання колатералю після резолюції
-
-```mermaid
-sequenceDiagram
-    actor U as Користувач
-    participant UI as RedeemSection
-    participant MKT as EventBasedPredictionMarket
-    participant T as ARCT / PLT / PST
-
-    Note over MKT: receivedSettlementPrice == true, settlementPrice ∈ {0, 5e17, 1e18}
-    U->>UI: settle(longTokens, shortTokens)
-    UI->>MKT: settle(longAmt, shortAmt)
-    MKT->>T: PLT.burnFrom(user, longAmt)
-    MKT->>T: PST.burnFrom(user, shortAmt)
-    Note over MKT: long*settlementPrice/1e18 + short*(1e18-settlementPrice)/1e18
-    MKT->>T: ARCT.transfer(user, collateralReturned)
-    MKT-->>U: подія PositionSettled
-```
-
-> Альтернатива до резолюції: `redeem(n)` спалює рівну пару PLT+PST і повертає `n` ARCT 1:1.
-
----
-
-## 5. Збірна компонентна схема (frontend ↔ контракти ↔ UMA ↔ AMM ↔ гаманці)
-
-```mermaid
-graph TB
-    subgraph FE["Frontend (Next.js)"]
-        PAGES[page.tsx / market/address/page.tsx]
-        TRADE[TradingPanel: Buy/Sell/Resolve]
-        ACT[MarketActions: Approve/Create/Redeem/Settle]
-        WALLET[ConnectDialog: MetaMask | Circle Passkey]
-        HOOKS[hooks: market / amm / oracle]
-        UCW[useContractWrite]
-    end
-
-    subgraph WAL["Гаманці"]
-        MM[MetaMask injected EOA]
-        CP[Circle Passkey smart account<br/>+ bundler + paymaster]
-    end
-
-    subgraph CORE["Контракти ринку"]
-        AMM[PredictionMarketAMM<br/>x*y=k, 2% fee]
-        MKT[EventBasedPredictionMarket<br/>lifecycle + OO callbacks]
-        PLT[Long PLT]
-        PST[Short PST]
-        ARCT[ARCT collateral]
-    end
-
-    subgraph UMAINF["UMA-інфраструктура"]
-        OO[OptimisticOracleV2]
-        FIND[Finder]
-        IDW[IdentifierWhitelist]
-        ADW[AddressWhitelist]
-        STORE[Store fees=0]
-        MOCK[MockOracleAncillary DVM]
-        TIMER[Timer]
-    end
-
-    PAGES --> TRADE --> HOOKS
-    PAGES --> ACT --> HOOKS
-    WALLET --> UCW
-    HOOKS --> UCW
-    UCW --> MM
-    UCW --> CP
-    MM --> AMM
-    MM --> MKT
-    MM --> OO
-    CP --> AMM
-    CP --> MKT
-    AMM --> MKT
-    MKT --> PLT
-    MKT --> PST
-    MKT --> ARCT
-    MKT --> OO
-    OO --> FIND
-    FIND --> IDW
-    FIND --> ADW
-    FIND --> STORE
-    FIND --> MOCK
-    OO --> MOCK
-    MKT --> TIMER
-```
-
----
-
-## 6. Як рендерити
-
-- **GitHub** рендерить Mermaid у `.md` автоматично.
-- **VS Code:** розширення *Markdown Preview Mermaid Support*.
-- **Експорт у PNG/SVG:** [mermaid.live](https://mermaid.live) або `@mermaid-js/mermaid-cli`
-  (`npx -p @mermaid-js/mermaid-cli mmdc -i architecture-diagram.md -o out.svg`).
-</content>

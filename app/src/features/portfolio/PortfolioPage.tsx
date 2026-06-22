@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { type Address, formatUnits } from 'viem';
@@ -9,6 +9,7 @@ import { useMarketState, useTokenBalances } from '@/features/markets/hooks/useMa
 import { useAmmState } from '@/features/markets/hooks/useAmmState';
 import { STATIC_MARKETS } from '@/features/markets/catalog';
 import { fetchUserMarkets } from '@/features/markets/api/markets';
+import { PortfolioValueChart } from './PortfolioValueChart';
 
 interface LiveMarket {
   address: Address;
@@ -18,6 +19,7 @@ interface LiveMarket {
 
 export default function PortfolioPage() {
   const { address, isConnected } = useWallet();
+  const [marketValues, setMarketValues] = useState<Record<string, number>>({});
 
   const { data: userMarkets = [] } = useQuery({ queryKey: ['user-markets'], queryFn: fetchUserMarkets });
 
@@ -42,6 +44,14 @@ export default function PortfolioPage() {
     });
   }, [userMarkets]);
 
+  const reportValue = useCallback((marketAddress: Address, value: number) => {
+    const key = marketAddress.toLowerCase();
+    setMarketValues((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }));
+  }, []);
+
+  const totalValue = markets.reduce((sum, market) => sum + (marketValues[market.address.toLowerCase()] ?? 0), 0);
+  const activePositions = Object.values(marketValues).filter((value) => value > 0).length;
+
   return (
     <div className="space-y-6">
       <div className="border-b border-border pb-6">
@@ -56,26 +66,37 @@ export default function PortfolioPage() {
           <p className="text-muted-foreground">Connect a wallet to view your portfolio.</p>
         </div>
       ) : (
-        <div className="corner-markers border border-border bg-card">
-          <div className="grid grid-cols-12 gap-2 border-b border-border px-4 py-2">
-            <span className="data-label col-span-5">MARKET</span>
-            <span className="data-label col-span-2 text-right">YES</span>
-            <span className="data-label col-span-2 text-right">NO</span>
-            <span className="data-label col-span-3 text-right">EST. VALUE</span>
+        <>
+          <PortfolioValueChart value={totalValue} positions={activePositions} />
+          <div className="corner-markers border border-border bg-card">
+            <div className="grid grid-cols-12 gap-2 border-b border-border px-4 py-2">
+              <span className="data-label col-span-5">MARKET</span>
+              <span className="data-label col-span-2 text-right">YES</span>
+              <span className="data-label col-span-2 text-right">NO</span>
+              <span className="data-label col-span-3 text-right">EST. VALUE</span>
+            </div>
+            {markets.map((m) => (
+              <PortfolioRow key={m.address} market={m} account={address!} onValue={reportValue} />
+            ))}
+            {markets.length === 0 && (
+              <div className="px-4 py-8 text-center text-data-sm text-muted-foreground">No live markets yet.</div>
+            )}
           </div>
-          {markets.map((m) => (
-            <PortfolioRow key={m.address} market={m} account={address!} />
-          ))}
-          {markets.length === 0 && (
-            <div className="px-4 py-8 text-center text-data-sm text-muted-foreground">No live markets yet.</div>
-          )}
-        </div>
+        </>
       )}
     </div>
   );
 }
 
-function PortfolioRow({ market, account }: { market: LiveMarket; account: Address }) {
+function PortfolioRow({
+  market,
+  account,
+  onValue,
+}: {
+  market: LiveMarket;
+  account: Address;
+  onValue: (marketAddress: Address, value: number) => void;
+}) {
   void account;
   const ms = useMarketState(market.address);
   const balances = useTokenBalances(market.address, ms.longTokenAddress, ms.shortTokenAddress);
@@ -87,6 +108,11 @@ function PortfolioRow({ market, account }: { market: LiveMarket; account: Addres
   const value = longN * yesFrac + shortN * (1 - yesFrac);
 
   const empty = longN === 0 && shortN === 0;
+
+  useEffect(() => {
+    onValue(market.address, value);
+    return () => onValue(market.address, 0);
+  }, [market.address, onValue, value]);
 
   return (
     <Link

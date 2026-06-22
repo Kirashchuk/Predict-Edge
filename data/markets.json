@@ -1,10 +1,20 @@
 [
   {
+    "id": "user-1782134707250",
+    "address": "0x4cb387424d449e806E1888e4748023056104c55f",
+    "ammAddress": "0xa663FBc23311dd5138AEd9C87AcecEDAA3407C39",
+    "clobAddress": "0x057dea9A6eF23C43E53783f9b28FE9B81D0A1461",
+    "title": "Will!",
+    "category": "Crypto",
+    "createdAt": "2026-06-22T13:25:07.250Z"
+  },
+  {
     "id": "user-1782113319395",
     "address": "0xd4fba19137E43dbc5702C27e114fd16f6702a973",
     "ammAddress": "0x2a07F0978145eacf04eF51c322Af56981eff19ff",
     "title": "Will Ethereum close above 10000 USD in 2026?",
     "category": "Crypto",
-    "createdAt": "2026-06-22T07:28:39.395Z"
+    "createdAt": "2026-06-22T07:28:39.395Z",
+    "clobAddress": "0xA2e0ad9b89b79BB4694AA753d3Fc261D17c9982e"
   }
 ]

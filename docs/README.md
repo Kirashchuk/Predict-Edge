@@ -1,36 +1,74 @@
-# Документація — Prediction Market на Arc Testnet
+# Документація Predict-Edge
 
-Архітектурні артефакти тестнет-проєкту на базі [circlefin/arc-prediction-markets](https://github.com/circlefin/arc-prediction-markets).
-Мережа: **Arc Testnet** (chainId `5042002`, газ = USDC). Резолюція: **UMA Optimistic Oracle V2**.
-Торгівля: вбудований **constant-product AMM** (2% fee).
+Ця папка описує поточну реалізацію Predict-Edge: prediction market на Arc Testnet, який торгує
+USDC через constant-product AMM, має escrowed on-chain CLOB limit orders і резолюцію через UMA
+Optimistic Oracle V2.
+
+Проєкт походить від `circlefin/arc-prediction-markets`, але зараз реплатформований у локальний
+Templars-style monoreпо:
+
+- `app/` - Vite 5 + React 18 + Tailwind/shadcn + PWA.
+- `server/` - Bun + Hono API з OpenAPI/Scalar.
+- `contracts/` і `scripts/` - Hardhat, Solidity 0.8.17, UMA artifacts, AMM, CLOB, deploy tooling.
+- `data/` - локальні JSON-сховища для user-created market metadata і legacy order API.
 
 ## Зміст
 
 | Документ | Що всередині |
 |---|---|
-| [ADR-001-architecture.md](ADR-001-architecture.md) | Архітектурні рішення (D1–D7), альтернативи, trade-offs, наслідки, action items |
-| [ADR-002-templars-stack.md](ADR-002-templars-stack.md) | Реплатформа Next.js → стек Templars (Vite + Bun/Hono + feature-sliced) |
-| [tech-stack.md](tech-stack.md) | Карта технічного стеку (копія Templars) + команди |
-| [architecture-diagram.md](architecture-diagram.md) | C4 (Context/Container/Component) + sequence-потоки: create / trade / resolve / redeem |
-| [smart-contract-map.md](smart-contract-map.md) | Карта контрактів: функції, події, інтеграція з UMA OO V2, межі довіри |
-| [deployment-plan.md](deployment-plan.md) | Відтворюваний план деплою в Arc Testnet «з нуля» + `.env.local` шаблон |
-| [risks-and-security.md](risks-and-security.md) | Oracle manipulation, AMM slippage, reentrancy, ключі деплоєра, межі тестнету |
-| [deployed-addresses.md](deployed-addresses.md) | Адреси задеплоєних контрактів у Arc Testnet + перевірений стан |
-| [ROADMAP.md](ROADMAP.md) | Фазовий роадмап деплою з контрольними точками й rollback |
+| [ADR-001-architecture.md](ADR-001-architecture.md) | Архітектурні рішення поточної системи, trade-offs і production-gaps |
+| [ADR-002-templars-stack.md](ADR-002-templars-stack.md) | Рішення про перехід із Next.js sample на Vite + Bun/Hono |
+| [tech-stack.md](tech-stack.md) | Актуальна карта стеку, структура монорепо, env і команди |
+| [architecture-diagram.md](architecture-diagram.md) | C4/sequence діаграми для app, API, контрактів, торгівлі, resolution і limit orders |
+| [smart-contract-map.md](smart-contract-map.md) | Контракти, UMA bootstrap, функції, події, trust boundaries |
+| [deployment-plan.md](deployment-plan.md) | Відтворюваний деплой в Arc Testnet з нуля |
+| [deployed-addresses.md](deployed-addresses.md) | Поточні адреси Arc Testnet і перевірений стан |
+| [risks-and-security.md](risks-and-security.md) | Ризики тестнету, серверного ключа, Mock DVM, AMM і order storage |
+| [ROADMAP.md](ROADMAP.md) | Фазовий roadmap від локального запуску до pre-prod hardening |
 
-## Статус (перевірено)
+## Поточний стан
 
-- ✅ `npm install` — 2197 packages
-- ✅ `npm run compile` — 23 Solidity files (solc 0.8.17), 86 typings
-- ✅ `npm run dev` — Next.js 16.2.0, `GET / 200`, `GET /market/… 200`
-- ✅ `npm run deploy` — **задеплоєно в Arc Testnet** (адреси в [deployed-addresses.md](deployed-addresses.md)); газу ~0.39 USDC
-- ✅ `verify-deploy.ts` — AMM 1000/1000, ціни 0.5/0.5, ринок `priceRequested=true`
+| Шар | Статус |
+|---|---|
+| Контракти | `EventBasedPredictionMarket.sol`, `PredictionMarketAMM.sol`, `OnChainLimitOrderBook.sol`, Solidity 0.8.17, Hardhat |
+| Колатераль | Arc Testnet USDC ERC-20 `0x3600000000000000000000000000000000000000`, 6 decimals |
+| AMM | `x*y=k`, fee `200 bps`, seed liquidity `5 USDC` у базовому deploy |
+| CLOB | On-chain escrowed limit order book per market; buy orders escrow USDC, sell orders escrow PLT/PST |
+| Oracle | UMA Optimistic Oracle V2, bootstrap локальним `scripts/deploy.ts`, DVM у тестнеті замінений на `MockOracleAncillary` |
+| Frontend | Vite SPA на `http://localhost:5173`, маршрути `/`, `/market/:address`, `/portfolio` |
+| Backend | Hono API на `http://localhost:8787`, routes `/v1/markets`, legacy `/v1/orders`, `/docs`, `/openapi.json` |
+| Wallets | MetaMask/injected через wagmi + Circle Passkey smart account через Circle Modular Wallets, якщо налаштовано `VITE_CIRCLE_*` |
+| Дані | `data/markets.json` для створених ринків; `data/orders.json` лишився для legacy off-chain order API |
+
+## Базові команди
+
+```bash
+# root: contracts/deploy tooling
+npm install
+npm run compile
+npm run deploy
+npm run verify-deploy
+npm run sync-env
+
+# backend
+cd server
+bun install
+bun run dev
+
+# frontend
+cd app
+bun install
+bun run dev
+```
+
+Після `npm run deploy` адреси пишуться в root `.env.local` як `NEXT_PUBLIC_*`. Команда
+`npm run sync-env` переносить їх у `app/.env.local` як `VITE_*`, бо frontend працює на Vite.
 
 ## Ключові факти
 
-- Контракти: `EventBasedPredictionMarket.sol` (lifecycle) + `PredictionMarketAMM.sol` (AMM), AGPL-3.0-only.
-- UMA-стек бутстрапиться скриптом `scripts/deploy.ts` (Timer, Finder, Whitelists, Store, MockOracle, OO V2).
-- Колатераль ARCT (TestnetERC20, mintable) ≠ газовий USDC.
-- Dual-wallet: MetaMask (injected) + Circle Passkey (WebAuthn/smart account), абстраговані `useContractWrite`.
-- Resolution: `1e18`=YES, `0`=NO, `5e17`=Undetermined.
-</content>
+- USDC є і газовим активом Arc, і торговим колатералем через ERC-20 system contract з 6 decimals.
+- Mintable ARCT більше не є колатералем актуального deploy; старі згадки про ARCT у попередніх docs були історичними.
+- Limit orders у поточному UI йдуть через `OnChainLimitOrderBook`, а не через `/v1/orders`.
+- `POST /v1/markets` створює новий market + AMM + CLOB серверним deployer key. Це тестнетний UX-компроміс і ключова trust boundary.
+- Задокументовані base-market адреси можуть бути старим deploy без `CLOB_ADDRESS`; для CLOB на base market потрібно redeploy + `npm run sync-env`.
+- Resolution values: `1e18` = YES, `0` = NO, `5e17` = Undetermined.

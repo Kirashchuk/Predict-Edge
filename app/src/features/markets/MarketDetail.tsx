@@ -12,6 +12,7 @@ import { fmtPricePct, fmtToken } from '@/shared/lib/format';
 import { useWallet } from '@/features/wallet/WalletContext';
 import { TradingPanel } from '@/features/trading/TradingPanel';
 import { OrderBook } from '@/features/trading/OrderBook';
+import { TradeHistory } from '@/features/trading/TradeHistory';
 import { useAmmState } from './hooks/useAmmState';
 import { useMarketState, useTokenBalances } from './hooks/useMarketData';
 import { useSettlePosition } from './hooks/useMarketActions';
@@ -30,6 +31,7 @@ export default function MarketDetail() {
     STATIC_MARKETS.find((m) => m.address?.toLowerCase() === address?.toLowerCase()) ??
     userMarkets.find((m) => m.address.toLowerCase() === address?.toLowerCase());
   const amm = (known && 'ammAddress' in known ? known.ammAddress : undefined) as Address | undefined;
+  const clob = (known && 'clobAddress' in known ? known.clobAddress : undefined) as Address | undefined;
 
   const ms = useMarketState(market);
   const state = useAmmState(market, amm);
@@ -122,12 +124,15 @@ export default function MarketDetail() {
               ? `Settled @ ${formatUnits(ms.settlementPrice ?? 0n, 18)}`
               : 'Awaiting resolution'}
           </p>
+
+          <TradeHistory amm={amm} clob={clob} />
         </div>
 
         <div className="space-y-4">
           <TradingPanel
             market={market}
             amm={amm}
+            clob={clob}
             longToken={ms.longTokenAddress}
             shortToken={ms.shortTokenAddress}
             priceIdentifier={ms.priceIdentifier}
@@ -140,6 +145,7 @@ export default function MarketDetail() {
           <OrderBook
             market={market}
             amm={amm}
+            clob={clob}
             longToken={ms.longTokenAddress}
             shortToken={ms.shortTokenAddress}
             reserveYes={Number(formatUnits(state.reserveYes ?? 0n, 6))}

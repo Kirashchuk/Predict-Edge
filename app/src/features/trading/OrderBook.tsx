@@ -1,20 +1,41 @@
-import { useMemo } from 'react';
-import { type Address } from 'viem';
-import { X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { type Address, formatUnits, parseEther } from 'viem';
+import { GitCompareArrows, X } from 'lucide-react';
 import { useWallet } from '@/features/wallet/WalletContext';
+import { USDC_ADDRESS } from '@/shared/lib/contracts/addresses';
+import { formatCollateral } from '@/shared/lib/contracts/types';
+import { shortAddr } from '@/shared/lib/format';
+import { Button } from '@/shared/ui/primitives/button';
+import { toast } from '@/shared/ui/primitives/sonner';
 import { buildOrderBook } from './amm-math';
-import { useOrders, useUpdateOrder, isFillable } from './hooks/useOrders';
-import { useFillOrder } from './hooks/useFillOrder';
+import {
+  CLOB_OUTCOME,
+  CLOB_SIDE,
+  type ClobOrder,
+  type ClobOutcome,
+  outcomeLabel,
+  sideLabel,
+  useClobActions,
+  useClobAllowances,
+  useClobOrderBook,
+} from './hooks/useClob';
 
 interface OrderBookProps {
   market: Address;
   amm?: Address;
+  clob?: Address;
   longToken?: Address;
   shortToken?: Address;
   reserveYes: number;
   reserveNo: number;
   feeBps: number;
   yesPrice: number; // 0..1
+}
+
+const PRICE_SCALE = parseEther('1');
+
+function quoteUp(amount: bigint, price: bigint): bigint {
+  return (amount * price + PRICE_SCALE - 1n) / PRICE_SCALE;
 }
 
 function DepthRow({ price, size, depth, side }: { price: number; size: number; depth: number; side: 'ask' | 'bid' }) {
@@ -29,98 +50,233 @@ function DepthRow({ price, size, depth, side }: { price: number; size: number; d
   );
 }
 
-export function OrderBook({ market, amm, longToken, shortToken, reserveYes, reserveNo, feeBps, yesPrice }: OrderBookProps) {
-  const { address } = useWallet();
-  const { data: orders = [] } = useOrders(market);
-  const cancel = useUpdateOrder(market);
-  const { fill, fillingId } = useFillOrder(market, amm, longToken, shortToken);
+function ClobRow({
+  order,
+  mine,
+  busy,
+  onCancel,
+  onFill,
+}: {
+  order: ClobOrder;
+  mine: boolean;
+  busy: boolean;
+  onCancel: (order: ClobOrder) => void;
+  onFill: (order: ClobOrder) => void;
+}) {
+  const side = sideLabel(order.side);
+  const color = side === 'buy' ? 'text-success' : 'text-destructive';
+  return (
+    <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2 px-2 py-1 text-data-xs">
+      <span className={`font-mono ${color}`}>{(Number(formatUnits(order.price, 18)) * 100).toFixed(1)}%</span>
+      <span className="text-right font-mono text-muted-foreground">{formatCollateral(order.amountRemaining)}</span>
+      <span className="truncate text-right font-mono text-muted-foreground">{mine ? 'you' : shortAddr(order.maker)}</span>
+      {mine ? (
+        <button
+          onClick={() => onCancel(order)}
+          disabled={busy}
+          className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+          aria-label="Cancel order"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      ) : (
+        <button
+          onClick={() => onFill(order)}
+          disabled={busy}
+          className="border border-gold/60 bg-gold/15 px-1.5 font-mono text-[0.6rem] uppercase text-gold hover:bg-gold/25 disabled:opacity-50"
+        >
+          Fill
+        </button>
+      )}
+    </div>
+  );
+}
 
-  const book = useMemo(
+export function OrderBook({
+  clob,
+  longToken,
+  shortToken,
+  reserveYes,
+  reserveNo,
+  feeBps,
+}: OrderBookProps) {
+  const { address, isConnected } = useWallet();
+  const [outcome, setOutcome] = useState<ClobOutcome>(CLOB_OUTCOME.Yes);
+  const clobBook = useClobOrderBook(clob, outcome);
+  const actions = useClobActions(clob);
+  const allowances = useClobAllowances(clob, longToken, shortToken);
+
+  const ammBook = useMemo(
     () => buildOrderBook(reserveYes, reserveNo, feeBps),
     [reserveYes, reserveNo, feeBps],
   );
 
-  if (!book) {
-    return (
-      <div className="corner-markers border border-border bg-card p-4 text-data-sm text-muted-foreground">
-        Order book unavailable (no liquidity).
-      </div>
-    );
+  const bestBid = clobBook.bids[0];
+  const bestAsk = clobBook.asks[0];
+  const crossed = Boolean(bestBid && bestAsk && bestBid.price >= bestAsk.price);
+  const busy = actions.isPending || actions.isConfirming;
+
+  async function cancel(order: ClobOrder) {
+    try {
+      await actions.cancelOrder(order.id);
+      toast.success('Order cancelled');
+      await clobBook.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Cancel failed');
+    }
   }
 
-  const asksDesc = [...book.asks].sort((a, b) => b.price - a.price);
-  const bidsDesc = [...book.bids].sort((a, b) => b.price - a.price);
+  async function fill(order: ClobOrder) {
+    try {
+      if (!isConnected) throw new Error('Connect a wallet to fill orders');
+      if (order.side === CLOB_SIDE.Buy) {
+        const token = order.outcome === CLOB_OUTCOME.Yes ? longToken : shortToken;
+        const allowance = order.outcome === CLOB_OUTCOME.Yes ? allowances.yesAllowance : allowances.noAllowance;
+        if (!token) throw new Error('Outcome token unavailable');
+        if ((allowance ?? 0n) < order.amountRemaining) {
+          toast.message(`Approving ${outcomeLabel(order.outcome).toUpperCase()} tokens for CLOB...`);
+          await actions.approve(token);
+        }
+      } else {
+        const quote = quoteUp(order.amountRemaining, order.price);
+        if ((allowances.usdcAllowance ?? 0n) < quote) {
+          toast.message('Approving USDC for CLOB...');
+          await actions.approve(USDC_ADDRESS);
+        }
+      }
+
+      toast.message(`Filling ${sideLabel(order.side)} ${outcomeLabel(order.outcome).toUpperCase()} limit...`);
+      await actions.fillOrder(order.id);
+      toast.success('Order filled');
+      await clobBook.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Fill failed');
+    }
+  }
+
+  async function matchBest() {
+    if (!bestBid || !bestAsk) return;
+    try {
+      await actions.matchOrders(bestBid.id, bestAsk.id);
+      toast.success('Crossed orders matched');
+      await clobBook.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Match failed');
+    }
+  }
+
+  const asks = clobBook.asks;
+  const bids = clobBook.bids;
+  const asksDesc = ammBook ? [...ammBook.asks].sort((a, b) => b.price - a.price) : [];
+  const bidsDesc = ammBook ? [...ammBook.bids].sort((a, b) => b.price - a.price) : [];
 
   return (
     <div className="corner-markers border border-border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span className="data-label text-gold">// ORDER BOOK</span>
-        <span className="data-label">AMM DEPTH · YES</span>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={outcome === CLOB_OUTCOME.Yes ? 'success' : 'outline'}
+            onClick={() => setOutcome(CLOB_OUTCOME.Yes)}
+          >
+            YES
+          </Button>
+          <Button
+            size="sm"
+            variant={outcome === CLOB_OUTCOME.No ? 'destructive' : 'outline'}
+            onClick={() => setOutcome(CLOB_OUTCOME.No)}
+          >
+            NO
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 px-2 pb-1">
-        <span className="data-label">PRICE</span>
-        <span className="data-label text-right">SIZE (YES)</span>
-      </div>
+      {!clob ? (
+        <div className="border border-border bg-surface px-3 py-2 text-data-xs text-muted-foreground">
+          CLOB address unavailable for this market.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 px-2 pb-1">
+            <span className="data-label">PRICE</span>
+            <span className="data-label text-right">SIZE</span>
+            <span className="data-label text-right">MAKER</span>
+            <span className="data-label text-right">ACTION</span>
+          </div>
 
-      {/* Asks (buying YES drives price up) */}
-      <div className="flex flex-col-reverse">
-        {asksDesc.map((l, i) => (
-          <DepthRow key={`a${i}`} price={l.price} size={l.size} depth={l.total / book.maxTotal} side="ask" />
-        ))}
-      </div>
+          <div className="min-h-16">
+            <div className="data-label mb-1 px-2 text-destructive">ASKS</div>
+            {asks.length === 0 ? (
+              <div className="px-2 py-2 text-data-xs text-muted-foreground">No sell limits.</div>
+            ) : (
+              asks.map((order) => (
+                <ClobRow
+                  key={order.id.toString()}
+                  order={order}
+                  mine={Boolean(address && order.maker.toLowerCase() === address.toLowerCase())}
+                  busy={busy}
+                  onCancel={cancel}
+                  onFill={fill}
+                />
+              ))
+            )}
+          </div>
 
-      {/* Mid */}
-      <div className="my-1 flex items-center justify-between border-y border-border px-2 py-1">
-        <span className="font-mono text-data-sm font-semibold text-gold">{(book.mid * 100).toFixed(1)}%</span>
-        <span className="data-label">MID</span>
-      </div>
+          <div className="my-2 flex items-center justify-between border-y border-border px-2 py-1">
+            <span className="font-mono text-data-sm font-semibold text-gold">
+              {bestBid && bestAsk
+                ? `${(Number(formatUnits(bestBid.price, 18)) * 100).toFixed(1)} / ${(Number(formatUnits(bestAsk.price, 18)) * 100).toFixed(1)}`
+                : 'OPEN'}
+            </span>
+            {crossed ? (
+              <Button size="sm" disabled={!isConnected || busy} onClick={matchBest}>
+                <GitCompareArrows className="h-3 w-3" /> Match
+              </Button>
+            ) : (
+              <span className="data-label">SPREAD</span>
+            )}
+          </div>
 
-      {/* Bids (selling YES drives price down) */}
-      <div className="flex flex-col">
-        {bidsDesc.map((l, i) => (
-          <DepthRow key={`b${i}`} price={l.price} size={l.size} depth={l.total / book.maxTotal} side="bid" />
-        ))}
-      </div>
+          <div className="min-h-16">
+            <div className="data-label mb-1 px-2 text-success">BIDS</div>
+            {bids.length === 0 ? (
+              <div className="px-2 py-2 text-data-xs text-muted-foreground">No buy limits.</div>
+            ) : (
+              bids.map((order) => (
+                <ClobRow
+                  key={order.id.toString()}
+                  order={order}
+                  mine={Boolean(address && order.maker.toLowerCase() === address.toLowerCase())}
+                  busy={busy}
+                  onCancel={cancel}
+                  onFill={fill}
+                />
+              ))
+            )}
+          </div>
+        </>
+      )}
 
-      {/* Open limit orders */}
-      {orders.length > 0 && (
-        <div className="mt-3 border-t border-border pt-3">
-          <div className="data-label mb-2">OPEN LIMIT ORDERS ({orders.length})</div>
-          <div className="space-y-1">
-            {orders.slice(0, 8).map((o) => {
-              const fillable = isFillable(o, yesPrice);
-              const mine = address && o.owner === address.toLowerCase();
-              return (
-                <div key={o.id} className="flex items-center justify-between gap-2 px-2 py-1 text-data-xs">
-                  <span className={`font-mono ${o.side === 'buy' ? 'text-success' : 'text-destructive'}`}>
-                    {o.side.toUpperCase()} {o.outcome.toUpperCase()}
-                  </span>
-                  <span className="font-mono text-muted-foreground">
-                    {(o.limitPrice * 100).toFixed(0)}% · {o.size}
-                  </span>
-                  {mine && fillable && (
-                    <button
-                      onClick={() => fill(o)}
-                      disabled={fillingId === o.id}
-                      className="border border-gold/60 bg-gold/15 px-1.5 font-mono text-[0.6rem] uppercase text-gold hover:bg-gold/25 disabled:opacity-50"
-                    >
-                      {fillingId === o.id ? '…' : 'Fill'}
-                    </button>
-                  )}
-                  {!mine && fillable && <span className="font-mono text-gold">● fillable</span>}
-                  {mine && (
-                    <button
-                      onClick={() => address && cancel.mutate({ id: o.id, owner: address, status: 'cancelled' })}
-                      className="text-muted-foreground hover:text-destructive"
-                      aria-label="Cancel order"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+      {ammBook && (
+        <div className="mt-4 border-t border-border pt-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="data-label">AMM DEPTH REF</span>
+            <span className="data-label">{outcome === CLOB_OUTCOME.Yes ? 'YES' : 'NO'}</span>
+          </div>
+          <div className="flex flex-col-reverse">
+            {asksDesc.slice(0, 4).map((l, i) => (
+              <DepthRow key={`a${i}`} price={l.price} size={l.size} depth={l.total / ammBook.maxTotal} side="ask" />
+            ))}
+          </div>
+          <div className="my-1 flex items-center justify-between border-y border-border px-2 py-1">
+            <span className="font-mono text-data-xs text-gold">{(ammBook.mid * 100).toFixed(1)}%</span>
+            <span className="data-label">AMM MID</span>
+          </div>
+          <div className="flex flex-col">
+            {bidsDesc.slice(0, 4).map((l, i) => (
+              <DepthRow key={`b${i}`} price={l.price} size={l.size} depth={l.total / ammBook.maxTotal} side="bid" />
+            ))}
           </div>
         </div>
       )}

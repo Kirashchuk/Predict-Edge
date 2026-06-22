@@ -303,12 +303,23 @@ async function main() {
   await (await amm.initialize(CONFIG.seedLiquidity)).wait();
   console.log(`  AMM seeded with ${ethers.formatUnits(CONFIG.seedLiquidity, USDC_DECIMALS)} USDC.`);
 
-  // --- Phase 7: Write .env.local ----------------------------------
+  // --- Phase 7: Deploy CLOB ---------------------------------------
+
+  console.log("\nPhase 7: Deploying on-chain CLOB...\n");
+
+  const clobFactory = await ethers.getContractFactory("OnChainLimitOrderBook", deployer);
+  const clob = await clobFactory.deploy(marketAddr);
+  await clob.waitForDeployment();
+  const clobAddr = await clob.getAddress();
+  console.log(`  OnChainLimitOrderBook: ${clobAddr}`);
+
+  // --- Phase 8: Write .env.local ----------------------------------
 
   const envPath = path.resolve(__dirname, "../.env.local");
   writeEnvFile(envPath, {
     NEXT_PUBLIC_MARKET_ADDRESS: marketAddr,
     NEXT_PUBLIC_AMM_ADDRESS: ammAddr,
+    NEXT_PUBLIC_CLOB_ADDRESS: clobAddr,
     NEXT_PUBLIC_USDC_ADDRESS: USDC_ADDRESS,
     NEXT_PUBLIC_OO_V2_ADDRESS: ooV2Addr,
     NEXT_PUBLIC_FINDER_ADDRESS: finderAddr,
@@ -336,13 +347,15 @@ async function main() {
   console.log("Market:");
   console.log(`  PredictionMarket:     ${marketAddr}`);
   console.log(`  AMM:                  ${ammAddr}`);
+  console.log(`  CLOB:                 ${clobAddr}`);
   console.log("");
   console.log(`Updated ${envPath} with deployed addresses.`);
   console.log("\nNext steps:");
-  console.log("  1. Run 'npm run dev' to start the frontend.");
-  console.log("  2. Connect your wallet and mint ARCT tokens (the UI has a faucet button).");
-  console.log("  3. Buy/sell positions via the AMM.");
-  console.log("  4. To resolve: propose a price to the OO, wait for liveness, then settle.");
+  console.log("  1. Run 'npm run sync-env' to propagate VITE_* addresses.");
+  console.log("  2. Run 'npm run dev:api' and 'npm run dev:app'.");
+  console.log("  3. Buy/sell via the AMM or place on-chain CLOB limit orders.");
+  console.log("  4. Run 'npm run keeper' to auto-match crossed CLOB orders.");
+  console.log("  5. To resolve: propose a price to the OO, wait for liveness, then settle.");
 }
 
 main().catch((error) => {

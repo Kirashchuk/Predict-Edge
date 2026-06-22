@@ -4,6 +4,7 @@ export interface UserMarket {
   id: string;
   address: string;
   ammAddress: string;
+  clobAddress?: string;
   title: string;
   category: string;
   createdAt: string;

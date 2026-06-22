@@ -5,6 +5,7 @@ export interface StoredMarket {
   id: string;
   address: string;
   ammAddress: string;
+  clobAddress?: string;
   title: string;
   category: string;
   createdAt: string;

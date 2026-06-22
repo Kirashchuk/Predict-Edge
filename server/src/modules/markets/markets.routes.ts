@@ -6,6 +6,7 @@ const MarketSchema = z.object({
   id: z.string(),
   address: z.string(),
   ammAddress: z.string(),
+  clobAddress: z.string().optional(),
   title: z.string(),
   category: z.string(),
   createdAt: z.string(),
@@ -28,7 +29,7 @@ const createMarketRoute = createRoute({
   method: 'post',
   path: '/markets',
   tags: ['markets'],
-  summary: 'Deploy a new prediction market + AMM on-chain',
+  summary: 'Deploy a new prediction market + AMM + CLOB on-chain',
   request: {
     body: {
       content: {

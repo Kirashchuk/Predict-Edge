@@ -8,7 +8,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { createPublicClient, http, formatEther, formatUnits, type Address } from "viem";
+import { createPublicClient, http, formatEther, formatUnits, isAddress, type Address } from "viem";
 
 function readEnv(): Record<string, string> {
   const p = path.resolve(process.cwd(), ".env.local");
@@ -26,6 +26,7 @@ const client = createPublicClient({ transport: http(RPC) });
 
 const AMM = env.NEXT_PUBLIC_AMM_ADDRESS as Address;
 const MARKET = env.NEXT_PUBLIC_MARKET_ADDRESS as Address;
+const CLOB = env.NEXT_PUBLIC_CLOB_ADDRESS as Address | undefined;
 const ARCT = (env.NEXT_PUBLIC_USDC_ADDRESS ?? '0x3600000000000000000000000000000000000000') as Address;
 
 const ammAbi = [
@@ -45,6 +46,11 @@ const marketAbi = [
 const erc20Abi = [
   { name: "balanceOf", type: "function", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { name: "symbol", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+] as const;
+
+const clobAbi = [
+  { name: "market", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { name: "getOpenOrders", type: "function", stateMutability: "view", inputs: [{ type: "uint8" }, { type: "uint8" }], outputs: [{ type: "uint256[]" }] },
 ] as const;
 
 async function main() {
@@ -84,6 +90,26 @@ async function main() {
   console.log(`  noPrice:      ${formatEther(noPrice)} (≈0.5 очікувано)`);
   console.log(`  feeBps:       ${fee} (200 = 2%)`);
   console.log("");
+  if (CLOB && isAddress(CLOB)) {
+    const [clobMarket, yesBids, yesAsks, noBids, noAsks] = await Promise.all([
+      client.readContract({ address: CLOB, abi: clobAbi, functionName: "market" }),
+      client.readContract({ address: CLOB, abi: clobAbi, functionName: "getOpenOrders", args: [0, 0] }),
+      client.readContract({ address: CLOB, abi: clobAbi, functionName: "getOpenOrders", args: [0, 1] }),
+      client.readContract({ address: CLOB, abi: clobAbi, functionName: "getOpenOrders", args: [1, 0] }),
+      client.readContract({ address: CLOB, abi: clobAbi, functionName: "getOpenOrders", args: [1, 1] }),
+    ]);
+    const attached = clobMarket.toLowerCase() === MARKET.toLowerCase();
+    console.log("CLOB:");
+    console.log(`  address:      ${CLOB}`);
+    console.log(`  market:       ${clobMarket}  ${attached ? "✅" : "❌"}`);
+    console.log(`  YES bids/asks:${yesBids.length}/${yesAsks.length}`);
+    console.log(`  NO bids/asks: ${noBids.length}/${noAsks.length}`);
+    console.log("");
+  } else {
+    console.log("CLOB:");
+    console.log("  NEXT_PUBLIC_CLOB_ADDRESS is not configured.");
+    console.log("");
+  }
   console.log("Balances:");
   console.log(`  deployer ${arctSymbol}: ${usdc6(deployerArct)} USDC (ERC-20, 6 dec)`);
   console.log(`  AMM ${arctSymbol}:      ${usdc6(ammArct)} USDC (0 — пішло в market.create як колатераль)`);

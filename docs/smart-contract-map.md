@@ -1,157 +1,277 @@
 # Карта смартконтрактів
 
-Огляд усіх контрактів системи: відповідальність, ключові функції, події, точки інтеграції з
-**UMA Optimistic Oracle V2** і **межі довіри (trust boundaries)**.
+Поточний on-chain шар складається з трьох власних контрактів і UMA-інфраструктури, яку deploy script
+піднімає на Arc Testnet. Торговий колатераль - Arc USDC ERC-20 system contract.
 
-| Контракт | Джерело | Ліцензія | Роль |
-|---|---|---|---|
-| `EventBasedPredictionMarket` | `contracts/` (власний) | AGPL-3.0-only | Життєвий цикл ринку, інтеграція з OO |
-| `PredictionMarketAMM` | `contracts/` (власний) | AGPL-3.0-only | Constant-product торгівля позиціями |
-| `OptimisticOracleV2` | `@uma/core` | — | Optimistic-оракул: request→propose→dispute→settle |
-| `Finder` | `@uma/core` | — | Реєстр адрес UMA-екосистеми |
-| `IdentifierWhitelist` | `@uma/core` | — | Whitelist цінових ідентифікаторів |
-| `AddressWhitelist` | `@uma/core` | — | Whitelist дозволених колатералей |
-| `Store` | `@uma/core` | — | Комісії оракула (на тестнеті = 0) |
-| `MockOracleAncillary` | `@uma/core` | — | DVM-замінник на тестнеті (admin push price) |
-| `Timer` | `@uma/core` | — | Керований час для тестів |
-| `TestnetERC20` (ARCT) | `@uma/core` | — | Вільно мінтований колатераль (18 dec) |
-| `ExpandedERC20` (PLT/PST) | `@uma/core` | — | Long/Short позиційні токени (mint/burn) |
+## Контракти і ролі
 
----
-
-## 1. `EventBasedPredictionMarket.sol`
-
-**Відповідальність:** ядро ринку — мінт/спалення пар Long(YES)/Short(NO), запит ціни в OO,
-обробка callback-ів оракула, фінальна резолюція та погашення.
-
-Успадковує `Testable` (UMA) → джерело часу через `Timer`.
-
-### Ключові функції
-
-| Функція | Доступ | Призначення |
+| Контракт | Джерело | Роль |
 |---|---|---|
-| `constructor(pairName, collateral, ancillaryData, finder, timer, reward, liveness, bond)` | deploy | Перевіряє whitelist ідентифікатора й колатералю; створює `longToken`/`shortToken` (PLT/PST), призначає себе minter/burner |
-| `initializeMarket()` | public | Тягне `proposerReward`, викликає `_requestOraclePrice()`; **одноразово** (`!priceRequested`) |
-| `create(tokensToCreate)` | public, `requestInitialized` | Депонує колатераль 1:1, мінтить рівну пару PLT+PST |
-| `redeem(tokensToRedeem)` | public | Спалює рівну пару PLT+PST, повертає колатераль 1:1 (до резолюції) |
-| `settle(longAmt, shortAmt)` | public | Після резолюції спалює токени, повертає `long*P + short*(1−P)` |
-| `priceSettled(id, ts, ancillary, price)` | **тільки OO** | Callback: фіксує `settlementPrice` ∈ {0, 5e17, 1e18}, `receivedSettlementPrice=true` |
-| `priceDisputed(id, ts, ancillary, refund)` | **тільки OO** | Callback: re-request ціни з новим timestamp (event-based) |
-| `getOptimisticOracle()` | view | Резолвить OO V2 через `Finder` |
+| `EventBasedPredictionMarket` | `contracts/EventBasedPredictionMarket.sol` | Lifecycle market, position token mint/burn, UMA callbacks, settlement |
+| `PredictionMarketAMM` | `contracts/PredictionMarketAMM.sol` | Constant-product trading YES/NO positions |
+| `OnChainLimitOrderBook` | `contracts/OnChainLimitOrderBook.sol` | Escrowed CLOB limit orders for one market |
+| `OptimisticOracleV2` | UMA artifact from `@uma/core` | Optimistic propose/dispute/settle |
+| `Finder` | UMA artifact | Registry for UMA interfaces |
+| `IdentifierWhitelist` | UMA artifact | Whitelists `YES_OR_NO_QUERY` |
+| `AddressWhitelist` | UMA artifact | Whitelists USDC collateral |
+| `Store` | UMA artifact | Oracle fee store, configured with zero fees in this testnet deploy |
+| `MockOracleAncillary` | UMA artifact | Testnet DVM substitute for disputed requests |
+| `Timer` | UMA artifact | Testable time source used by market and UI resolution helpers |
+| USDC ERC-20 | Arc system contract | Collateral token at `0x3600000000000000000000000000000000000000`, 6 decimals |
+| `ExpandedERC20` PLT/PST | Created by market constructor | YES and NO position tokens |
 
-### Події
-`TokensCreated`, `TokensRedeemed`, `PositionSettled`, `MarketInitialized`, `PriceDisputed`.
+The two local contracts are `AGPL-3.0-only`. Deploy scripts and application code keep the repository Apache-2.0 lineage from the Circle sample where applicable.
 
-### Інтеграція з UMA OO V2 (`_requestOraclePrice`)
-1. `approve(OO, proposerReward)` колатералю.
-2. `requestPrice(YES_OR_NO_QUERY, ts, ancillaryData, collateral, reward)`.
-3. `setCustomLiveness(...)` — 60s на тестнеті.
-4. `setBond(...)` — proposerBond (100 ARCT).
-5. `setEventBased(...)` — DVM голосує за timestamp пропозиції; дозволяє кілька раундів диспутів.
-6. `setCallbacks(false, true, true)` — увімкнено `priceDisputed` і `priceSettled` (НЕ `priceProposed`).
+## `EventBasedPredictionMarket`
 
-### Карта значень резолюції
-| `settlementPrice` | Long(YES) | Short(NO) |
-|---|---|---|
-| `1e18` (YES) | 1 ARCT/токен | 0 |
-| `0` (NO) | 0 | 1 ARCT/токен |
-| `5e17` (Undetermined) | 0.5 | 0.5 |
+Responsibilities:
 
----
+- Accept USDC collateral and mint equal pairs of long/short position tokens.
+- Request resolution from UMA Optimistic Oracle V2.
+- Process `priceDisputed` and `priceSettled` callbacks.
+- Let users redeem equal pairs pre-settlement or settle positions post-resolution.
 
-## 2. `PredictionMarketAMM.sol`
+Key state:
 
-**Відповідальність:** безперервна торгівля YES/NO за constant-product `x*y=k` поверх ринку.
-Успадковує `ReentrancyGuard`; усі торгові методи — `nonReentrant whenActive`.
-
-### Ключові функції
-
-| Функція | Призначення |
+| State | Meaning |
 |---|---|
-| `constructor(market, feeBps)` | Біндить ринок, токени; `feeBps < 10000` |
-| `initialize(liquidity)` | Тягне колатераль, `market.create(liquidity)`, approve PLT/PST ринку, сід `reserveYes=reserveNo=liquidity` |
-| `buyYes(usdcAmount)` | Тягне ARCT → `create()` → swap No→Yes (fee) → віддає `amount + swapYesOut` PLT |
-| `buyNo(usdcAmount)` | Симетрично для NO |
-| `sellYes(yesAmount)` | Тягне PLT → swap Yes→No → `market.redeem(noOut)` → віддає ARCT |
-| `sellNo(noAmount)` | Симетрично для NO |
-| `getYesPrice()` | `reserveNo*1e18/(reserveYes+reserveNo)` (читається як ймовірність) |
-| `getNoPrice()` | `reserveYes*1e18/(reserveYes+reserveNo)` |
-| `getReserves()` | `(reserveYes, reserveNo)` |
-| `calcBuyYes/No`, `calcSellYes/No` | Прев'ю-розрахунки без зміни стану |
+| `priceRequested` | Market has called `requestPrice` on OO V2 |
+| `receivedSettlementPrice` | Final settlement price has been accepted |
+| `requestTimestamp` | Current active request timestamp |
+| `pairName` | Token pair label such as `BTC100K` |
+| `settlementPrice` | `1e18`, `0`, or `5e17` |
+| `priceIdentifier` | `YES_OR_NO_QUERY` |
+| `collateralToken` | USDC ERC-20 system contract |
+| `longToken`, `shortToken` | PLT/PST position tokens |
+| `finder` | UMA Finder |
+| `customAncillaryData` | UTF-8 market question bytes |
+| `proposerReward`, `optimisticOracleLivenessTime`, `optimisticOracleProposerBond` | OO parameters |
 
-### Події
-`BuyYes`, `BuyNo`, `SellYes`, `SellNo`.
+Key functions:
 
-### Інваріанти / зауваги
-- Ціни YES+NO ≈ 1.00 (за конструкцією); fee 2% «з'їдає» вихід (`effectiveAmount`).
-- `whenActive` блокує торгівлю після `receivedSettlementPrice` (ринок резолвнуто).
-- AMM тримає `approve(market, max)` на колатераль і PLT/PST — для `create`/`redeem`.
-- Купівля = mint пари + swap небажаної ноги → ефективна ціна нелінійна за обсягом.
+| Function | Access | Behavior |
+|---|---|---|
+| `constructor(...)` | deploy | Verifies identifier and collateral whitelist, creates PLT/PST, assigns market as minter/burner |
+| `initializeMarket()` | public | Pulls proposer reward from caller, requests price from OO V2, one-time only |
+| `create(tokensToCreate)` | public after init | Pulls USDC 1:1 and mints equal PLT/PST |
+| `redeem(tokensToRedeem)` | public | Burns equal PLT/PST and returns USDC 1:1 |
+| `settle(longTokens, shortTokens)` | public after resolution | Burns positions and returns USDC based on `settlementPrice` |
+| `priceSettled(...)` | OO only | Validates callback and stores final settlement price |
+| `priceDisputed(...)` | OO only | Validates callback, moves timestamp, re-requests price |
+| `getOptimisticOracle()` | view | Resolves OO V2 through Finder |
 
----
+Events:
 
-## 3. UMA-стек (`@uma/core`, деплоїться скриптом)
+- `TokensCreated`
+- `TokensRedeemed`
+- `PositionSettled`
+- `MarketInitialized`
+- `PriceDisputed`
 
+Resolution mapping:
+
+| OO price | YES token value | NO token value |
+|---|---|---|
+| `1e18` | 1 USDC | 0 |
+| `0` | 0 | 1 USDC |
+| `5e17` | 0.5 USDC | 0.5 USDC |
+
+## UMA integration
+
+`_requestOraclePrice()` performs:
+
+1. `collateralToken.safeApprove(OO, proposerReward)`.
+2. `requestPrice(YES_OR_NO_QUERY, requestTimestamp, customAncillaryData, USDC, proposerReward)`.
+3. `setCustomLiveness(..., optimisticOracleLivenessTime)`.
+4. `setBond(..., optimisticOracleProposerBond)`.
+5. `setEventBased(...)`.
+6. `setCallbacks(false, true, true)` so only dispute and settle callbacks are enabled.
+
+Callback safety:
+
+- `msg.sender` must be the current OO V2 address resolved from Finder.
+- `identifier` must equal `YES_OR_NO_QUERY`.
+- `ancillaryData` hash must match the market question.
+- `priceSettled` ignores stale timestamps.
+- `priceDisputed` requires the current timestamp and matching refund.
+
+## `PredictionMarketAMM`
+
+Responsibilities:
+
+- Seed equal YES/NO reserves.
+- Buy/sell YES and NO through constant-product math.
+- Preview output amounts for UI.
+- Block trading after market resolution.
+
+Key state:
+
+| State | Meaning |
+|---|---|
+| `market` | Linked `EventBasedPredictionMarket` |
+| `collateralToken` | USDC |
+| `longToken`, `shortToken` | PLT/PST |
+| `reserveYes`, `reserveNo` | AMM reserves in position token units |
+| `feeBps` | `200` in current deploy |
+| `initialized` | AMM seeded flag |
+
+Key functions:
+
+| Function | Behavior |
+|---|---|
+| `constructor(market, feeBps)` | Binds market/tokens and validates fee `< 10000` |
+| `initialize(initialLiquidity)` | Pulls USDC, calls `market.create`, seeds equal reserves |
+| `buyYes(usdcAmount)` | Pulls USDC, mints pair, swaps NO into pool, sends YES |
+| `buyNo(usdcAmount)` | Pulls USDC, mints pair, swaps YES into pool, sends NO |
+| `sellYes(yesAmount)` | Pulls YES, swaps to NO, redeems pairs, returns USDC |
+| `sellNo(noAmount)` | Pulls NO, swaps to YES, redeems pairs, returns USDC |
+| `getYesPrice()` | `reserveNo * 1e18 / (reserveYes + reserveNo)` |
+| `getNoPrice()` | `reserveYes * 1e18 / (reserveYes + reserveNo)` |
+| `getReserves()` | Returns `(reserveYes, reserveNo)` |
+| `calcBuyYes/No`, `calcSellYes/No` | View previews for frontend |
+
+Events:
+
+- `BuyYes`
+- `BuyNo`
+- `SellYes`
+- `SellNo`
+
+Security notes:
+
+- All trade functions are `nonReentrant`.
+- `whenActive` requires `initialized` and blocks trading after settlement.
+- Contract uses `SafeERC20`.
+- AMM grants max approvals to the market for USDC/PLT/PST. This is convenient but should be reviewed before production.
+- There is no `minOut` or deadline argument, so users rely on UI preview only.
+
+## Deploy-time UMA bootstrap
+
+```text
+Finder
+├── IdentifierWhitelist -> supports YES_OR_NO_QUERY
+├── CollateralWhitelist -> supports USDC system address
+├── Store -> zero oracle fees for testnet
+├── Oracle -> MockOracleAncillary
+└── OptimisticOracleV2 -> deployed OO V2
 ```
-Finder (реєстр)
- ├─ IdentifierWhitelist  → addSupportedIdentifier("YES_OR_NO_QUERY")
- ├─ CollateralWhitelist (AddressWhitelist) → addToWhitelist(ARCT)
- ├─ Store (fees = 0)
- ├─ Oracle → MockOracleAncillary (DVM-замінник)
- └─ OptimisticOracleV2 (defaultLiveness 7200, finder, timer)
-```
 
-- **`OptimisticOracleV2`** — приймає `requestPrice/proposePrice/disputePrice/settle`; на settle
-  викликає `priceSettled` ринку; на dispute — `priceDisputed` і ескалує до `Oracle` (Mock).
-- **`MockOracleAncillary`** — на тестнеті заміняє реальний DVM: admin може `pushPrice`,
-  імітуючи результат голосування.
-- **`Timer`** — `Testable`-час; у production передається `0x0` (системний час).
-- **`TestnetERC20` (ARCT)** — `allocateTo(addr, amount)` вільно мінтить (faucet UI).
+Deploy script phases:
 
----
+1. Deploy Timer, Finder, IdentifierWhitelist, AddressWhitelist, Store, MockOracleAncillary, OptimisticOracleV2.
+2. Register implementations in Finder.
+3. Whitelist `YES_OR_NO_QUERY`.
+4. Whitelist USDC collateral.
+5. Check deployer USDC balance.
+6. Deploy `EventBasedPredictionMarket`.
+7. Approve proposer reward and call `initializeMarket`.
+8. Deploy `PredictionMarketAMM`.
+9. Approve seed liquidity and call `initialize`.
+10. Deploy `OnChainLimitOrderBook`.
+11. Write addresses into root `.env.local`, including `NEXT_PUBLIC_CLOB_ADDRESS`.
 
-## 4. Межі довіри (Trust Boundaries)
+## `OnChainLimitOrderBook`
+
+Responsibilities:
+
+- Store and escrow limit orders per market.
+- Escrow USDC for buy orders.
+- Escrow PLT/PST for sell orders.
+- Let makers cancel open orders.
+- Let takers fill resting orders directly.
+- Let any matcher match crossed buy/sell orders.
+
+Key types:
+
+| Type | Values |
+|---|---|
+| `Side` | `Buy`, `Sell` |
+| `Outcome` | `Yes`, `No` |
+| `Status` | `Open`, `Filled`, `Cancelled` |
+
+Key state:
+
+| State | Meaning |
+|---|---|
+| `PRICE_SCALE` | `1e18`, price fixed-point scale |
+| `market` | The linked prediction market |
+| `collateralToken` | USDC |
+| `longToken`, `shortToken` | YES/NO tokens |
+| `nextOrderId` | Incrementing order id |
+| `orders` | Order storage by id |
+| `openOrderIds` | Private book index by `(outcome, side)` |
+
+Key functions:
+
+| Function | Behavior |
+|---|---|
+| `placeLimitOrder(side, outcome, price, amount)` | Escrows USDC or outcome tokens and opens an order |
+| `cancelOrder(orderId)` | Maker-only cancel and escrow return |
+| `fillOrder(orderId, amountToFill)` | Taker fills a resting order; `0` means full remaining amount |
+| `matchOrders(buyOrderId, sellOrderId, amountToFill)` | Matches crossed orders using seller ask price |
+| `getOpenOrders(outcome, side)` | Returns open order IDs for one book side |
+| `getOrders(ids)` | Returns order structs for UI |
+
+Events:
+
+- `OrderPlaced`
+- `OrderCancelled`
+- `OrderFilled`
+- `OrdersMatched`
+
+Security notes:
+
+- `nonReentrant` protects state-changing order functions.
+- `whenActive` blocks place/fill/match after market settlement.
+- Escrow is held by the CLOB contract and returned on cancel/final residual.
+- There is no off-chain signature model; orders are regular on-chain transactions.
+- Matching uses seller price, so keeper/matcher policy should be documented before production.
+
+## Trust boundaries
 
 ```mermaid
 graph TB
-    subgraph TB1["🔓 Недовірена зона: будь-який користувач"]
-        U[Трейдери / proposers / disputers]
-    end
-    subgraph TB2["⚙️ On-chain автономна логіка"]
-        AMM[PredictionMarketAMM]
-        MKT[EventBasedPredictionMarket]
-        OO[OptimisticOracleV2]
-    end
-    subgraph TB3["🟡 Тестнет-довірена точка"]
-        MOCK[MockOracleAncillary<br/>admin pushPrice = DVM-замінник]
-    end
-    subgraph TB4["🔴 Серверна межа довіри"]
-        API[/api/create-market<br/>тримає PRIVATE_KEY деплоєра/]
-        ENV[[.env.local: PRIVATE_KEY]]
-    end
-    subgraph TB5["🟠 Зовнішня залежність"]
-        CIRCLE[Circle bundler/paymaster<br/>passkey-транзакції]
-    end
+    Users["Permissionless users<br/>traders, proposers, disputers"]
+    App["Frontend<br/>signing UX"]
+    Api["Hono API<br/>server deploy key"]
+    Data["JSON stores<br/>markets and orders"]
+    AMM["PredictionMarketAMM"]
+    CLOB["OnChainLimitOrderBook"]
+    MKT["EventBasedPredictionMarket"]
+    OO["OptimisticOracleV2"]
+    Mock["MockOracleAncillary<br/>testnet DVM substitute"]
+    Circle["Circle bundler/paymaster<br/>optional passkey path"]
 
-    U -->|tx| AMM
-    U -->|propose/dispute/settle| OO
-    AMM --> MKT --> OO
-    OO -.dispute escalation.-> MOCK
-    U -->|POST title| API
-    API --> ENV
-    API -->|deploy + seed| MKT
-    U -->|passkey UserOp| CIRCLE --> AMM
+    Users --> App
+    App --> AMM
+    App --> OO
+    App --> Api
+    Api --> Data
+    Api --> MKT
+    Api --> AMM
+    Api --> CLOB
+    AMM --> MKT
+    CLOB --> MKT
+    MKT --> OO
+    OO --> Mock
+    App --> Circle
+    Circle --> AMM
 ```
 
-| # | Межа | Хто «всередині» | Ризик при компрометації |
-|---|---|---|---|
-| TB1→TB2 | Користувач → контракти | будь-хто (permissionless) | обмежений логікою контрактів; reentrancy-guard на AMM |
-| TB2 (callbacks) | OO → ринок | **тільки** адреса OO (`require msg.sender == OO`) | підробка callback неможлива поза OO |
-| TB3 | Mock DVM | **admin Mock-оракула** | може встановити будь-який результат диспуту (тестнет!) |
-| TB4 | `/api/create-market` | **сервер із PRIVATE_KEY** | злив ключа → втрата контролю над деплоєром; немає auth/rate-limit |
-| TB5 | Circle bundler/paymaster | **Circle-інфраструктура** | відмова сервісу → passkey-tx недоступні; paymaster спонсорує газ |
+| Boundary | Trusted component | Risk |
+|---|---|---|
+| User -> contracts | Contract code only | Bounded by Solidity logic and ERC-20 approvals |
+| OO -> market callbacks | Current OO address from Finder | Callback forgery blocked by sender and data checks |
+| OO dispute path | `MockOracleAncillary` admin | Testnet admin can decide disputed outcomes |
+| Frontend -> API create market | Server `PRIVATE_KEY` | Public endpoint can spend deployer USDC/gas if unprotected |
+| CLOB | On-chain escrow contract | More contract surface, gas, and keeper/matching requirements |
+| Legacy orders API | JSON file store | Not the current UI path; not durable or production-grade |
+| Circle path | Circle infra | Passkey tx unavailable if bundler/paymaster fails |
 
-**Висновок:** автономна частина (AMM ↔ market ↔ OO) недовірена й permissionless; основні «довірені»
-точки — це **Mock DVM (admin)** і **серверний ключ деплоєра** у create-market. Обидва — свідомі
-тестнет-спрощення (деталі мітигацій у [risks-and-security.md](risks-and-security.md)).
-</content>
+## Off-chain components
+
+- `data/markets.json` stores user-created market metadata.
+- `/v1/orders` and `data/orders.json` remain in the API as a legacy file-backed order path.
+- Current `TradingPanel` and `OrderBook` use `OnChainLimitOrderBook`, not `/v1/orders`.
+- `OrderBook` also derives AMM depth from reserves as reference liquidity.
+- `TradeHistory` reads AMM and CLOB logs from Arc.

@@ -72,7 +72,9 @@ export function useContractWrite() {
         } catch (err) {
           setIsPending(false);
           setIsConfirming(false);
-          setError(err instanceof Error ? err : new Error('Transaction failed'));
+          const error = err instanceof Error ? err : new Error('Transaction failed');
+          setError(error);
+          throw error;
         }
       } else {
         try {
@@ -99,7 +101,9 @@ export function useContractWrite() {
         } catch (err) {
           setIsPending(false);
           setIsConfirming(false);
-          setError(err instanceof Error ? err : new Error('Transaction failed'));
+          const error = err instanceof Error ? err : new Error('Transaction failed');
+          setError(error);
+          throw error;
         }
       }
     },

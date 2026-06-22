@@ -12,10 +12,11 @@ import { useWallet } from '@/features/wallet/WalletContext';
 import { useContractWrite } from '@/features/wallet/useContractWrite';
 import { useAmmTrade, useTradePreview, useTradeAllowances } from './hooks/useTrade';
 import { useOracleState, useOracleActions, type OracleArgs } from './hooks/useOracle';
-import { usePlaceOrder } from './hooks/useOrders';
+import { CLOB_OUTCOME, CLOB_SIDE, useClobActions, useClobAllowances } from './hooks/useClob';
 
 interface TradingPanelProps extends OracleArgs {
   amm?: Address;
+  clob?: Address;
   longToken?: Address;
   shortToken?: Address;
   resolved?: boolean;
@@ -24,7 +25,7 @@ interface TradingPanelProps extends OracleArgs {
 }
 
 export function TradingPanel(props: TradingPanelProps) {
-  const { amm, market, longToken, shortToken, resolved } = props;
+  const { amm, clob, market, longToken, shortToken, resolved } = props;
   return (
     <div className="corner-markers border border-border bg-card p-4">
       <div className="data-label mb-3 text-gold">// TRADE</div>
@@ -43,7 +44,13 @@ export function TradingPanel(props: TradingPanelProps) {
           <BuySell side="sell" amm={amm} longToken={longToken} shortToken={shortToken} resolved={resolved} />
         </TabsContent>
         <TabsContent value="limit">
-          <LimitForm market={market} resolved={resolved} yesPrice={props.yesPrice ?? 0.5} />
+          <LimitForm
+            clob={clob}
+            longToken={longToken}
+            shortToken={shortToken}
+            resolved={resolved}
+            yesPrice={props.yesPrice ?? 0.5}
+          />
         </TabsContent>
         <TabsContent value="resolve">
           <ResolveTab
@@ -141,28 +148,70 @@ function BuySell({
   );
 }
 
-// --- Limit order (off-chain, executes against the AMM when crossed) ---------
-function LimitForm({ market, resolved, yesPrice }: { market?: Address; resolved?: boolean; yesPrice: number }) {
-  const { address, isConnected } = useWallet();
+// --- Limit order (on-chain CLOB) -------------------------------------------
+function LimitForm({
+  clob,
+  longToken,
+  shortToken,
+  resolved,
+  yesPrice,
+}: {
+  clob?: Address;
+  longToken?: Address;
+  shortToken?: Address;
+  resolved?: boolean;
+  yesPrice: number;
+}) {
+  const { isConnected } = useWallet();
   const [outcome, setOutcome] = useState<'yes' | 'no'>('yes');
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [price, setPrice] = useState('');
   const [size, setSize] = useState('');
-  const place = usePlaceOrder(market);
+  const clobActions = useClobActions(clob);
+  const allowances = useClobAllowances(clob, longToken, shortToken);
 
   const outcomePrice = outcome === 'yes' ? yesPrice : 1 - yesPrice;
-  const disabled = !isConnected || resolved || place.isPending || !price || !size || Number(size) <= 0;
+  const busy = clobActions.isPending || clobActions.isConfirming;
+  const disabled = !isConnected || !clob || resolved || busy || !price || !size || Number(size) <= 0;
 
   async function submit() {
-    if (!address || !market) return;
-    const limit = Number(price) / 100;
-    if (limit <= 0 || limit >= 1) {
+    if (!clob) {
+      toast.error('CLOB is not deployed for this market');
+      return;
+    }
+
+    const limitPct = Number(price);
+    if (limitPct <= 0 || limitPct >= 100) {
       toast.error('Limit price must be between 1% and 99%');
       return;
     }
+
     try {
-      await place.mutateAsync({ market, owner: address, side, outcome, limitPrice: limit, size: Number(size) });
-      toast.success(`Limit ${side} ${outcome.toUpperCase()} @ ${price}% placed`);
+      const limitPrice = parseUnits(price, 16);
+      const amountUnits = parseUnits(size, COLLATERAL_DECIMALS);
+      const sideCode = side === 'buy' ? CLOB_SIDE.Buy : CLOB_SIDE.Sell;
+      const outcomeCode = outcome === 'yes' ? CLOB_OUTCOME.Yes : CLOB_OUTCOME.No;
+
+      if (side === 'buy') {
+        const one = parseEther('1');
+        const quote = (amountUnits * limitPrice + one - 1n) / one;
+        if ((allowances.usdcAllowance ?? 0n) < quote) {
+          toast.message('Approving USDC for CLOB...');
+          await clobActions.approve(USDC_ADDRESS);
+        }
+      } else {
+        const token = outcome === 'yes' ? longToken : shortToken;
+        const tokenAllowance = outcome === 'yes' ? allowances.yesAllowance : allowances.noAllowance;
+        if (!token) throw new Error('Outcome token unavailable');
+        if ((tokenAllowance ?? 0n) < amountUnits) {
+          toast.message(`Approving ${outcome.toUpperCase()} tokens for CLOB...`);
+          await clobActions.approve(token);
+        }
+      }
+
+      toast.message(`Placing on-chain ${side} ${outcome.toUpperCase()} limit...`);
+      await clobActions.placeLimitOrder(sideCode, outcomeCode, limitPrice, amountUnits);
+      toast.success(`On-chain ${side} ${outcome.toUpperCase()} @ ${price}% placed`);
       setPrice('');
       setSize('');
     } catch (e) {
@@ -197,10 +246,10 @@ function LimitForm({ market, resolved, yesPrice }: { market?: Address; resolved?
         <Input type="number" placeholder="0.0" value={size} onChange={(e) => setSize(e.target.value)} />
       </div>
       <Button className="w-full" disabled={disabled} onClick={submit}>
-        {place.isPending ? 'Placing…' : 'Place limit order'}
+        {busy ? 'Placing...' : 'Place on-chain limit'}
       </Button>
       <p className="text-center text-[0.6rem] text-muted-foreground/70">
-        Off-chain order · auto-flagged fillable when AMM price crosses · you sign the fill vs the AMM
+        Escrowed on-chain order - keeper matches crossed bids and asks
       </p>
       {!isConnected && <p className="text-center text-data-xs text-muted-foreground">Connect a wallet to place orders.</p>}
     </div>
