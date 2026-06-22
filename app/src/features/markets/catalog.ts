@@ -60,7 +60,24 @@ export const STATIC_MARKETS: MarketEntry[] = [
   { id: 'oil-60', title: 'Will WTI crude drop below $60 this year?', category: 'Commodities', staticYes: 0.34, live: false },
   { id: 'silver-40', title: 'Will silver break $40/oz before 2027?', category: 'Commodities', staticYes: 0.38, live: false },
 
+  { id: 'btc-200k', title: 'Will Bitcoin reach $200,000 before 2028?', category: 'Crypto', staticYes: 0.36, live: false },
+  { id: 'l2-tvl', title: 'Will total L2 TVL double by year end?', category: 'Crypto', staticYes: 0.47, live: false },
+
+  // --- Economy ---
+  { id: 'gdp-3', title: 'Will US GDP growth exceed 3% this year?', category: 'Economy', staticYes: 0.33, live: false },
+  { id: 'rate-zero', title: 'Will the Fed funds rate fall below 3% this year?', category: 'Economy', staticYes: 0.45, live: false },
+
+  // --- Equities ---
+  { id: 'aapl-4t', title: 'Will Apple stay above a $4T market cap all quarter?', category: 'Equities', staticYes: 0.6, live: false },
+  { id: 'ipo-wave', title: 'Will there be 5+ unicorn IPOs this quarter?', category: 'Equities', staticYes: 0.4, live: false },
+
+  // --- Commodities ---
+  { id: 'gas-low', title: 'Will US natural gas stay below $3/MMBtu this quarter?', category: 'Commodities', staticYes: 0.53, live: false },
+  { id: 'copper-high', title: 'Will copper hit a new all-time high this year?', category: 'Commodities', staticYes: 0.42, live: false },
+
   // --- Geopolitics ---
   { id: 'eu-rate', title: 'Will the ECB hold rates steady through Q3?', category: 'Geopolitics', staticYes: 0.49, live: false },
   { id: 'opec-cut', title: 'Will OPEC+ announce a production cut this year?', category: 'Geopolitics', staticYes: 0.57, live: false },
+  { id: 'brics-currency', title: 'Will BRICS announce a shared settlement currency this year?', category: 'Geopolitics', staticYes: 0.16, live: false },
+  { id: 'uk-election', title: 'Will the UK hold a general election this year?', category: 'Geopolitics', staticYes: 0.25, live: false },
 ];

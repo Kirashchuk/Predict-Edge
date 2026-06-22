@@ -95,6 +95,26 @@
     font-family: 'JetBrains Mono', 'Courier New', monospace;
     -webkit-font-smoothing: antialiased;
     letter-spacing: 0.01em;
+    /* Mobile: avoid rubber-band overscroll + double-tap zoom on controls */
+    overscroll-behavior-y: none;
+  }
+
+  button,
+  a,
+  [role='tab'] {
+    touch-action: manipulation;
+  }
+
+  /* Respect device notches / home indicator on installed PWA */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-x {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   h1, h2, h3, h4, h5, h6 {
