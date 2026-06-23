@@ -367,7 +367,7 @@ function LimitForm({
       </div>
       <div>
         <div className="data-label mb-1">
-          SIZE ({side === 'buy' ? 'USDC' : `${outcome.toUpperCase()} tokens`})
+          SIZE ({outcome.toUpperCase()} tokens)
         </div>
         <Input
           type="number"
@@ -380,7 +380,7 @@ function LimitForm({
         {busy ? 'Placing...' : 'Place on-chain limit'}
       </Button>
       <p className="text-center text-[0.6rem] text-muted-foreground/70">
-        Escrowed on-chain order - keeper matches crossed bids and asks
+        Escrowed on-chain order - keeper matches crossed CLOB and AMM depth
       </p>
       {!isConnected && (
         <p className="text-center text-data-xs text-muted-foreground">
