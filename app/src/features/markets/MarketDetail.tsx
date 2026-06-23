@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useReadContract } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +14,10 @@ import { useWallet } from '@/features/wallet/WalletContext';
 import { TradingPanel } from '@/features/trading/TradingPanel';
 import { OrderBook } from '@/features/trading/OrderBook';
 import { TradeHistory } from '@/features/trading/TradeHistory';
+import type {
+  LimitOrderDraft,
+  LimitOrderSelection,
+} from '@/features/trading/limit-order-draft';
 import { useAmmState } from './hooks/useAmmState';
 import { useMarketState, useTokenBalances } from './hooks/useMarketData';
 import { useSettlePosition } from './hooks/useMarketActions';
@@ -24,18 +29,32 @@ export default function MarketDetail() {
   const { address } = useParams<{ address: string }>();
   const market = address as Address | undefined;
   const { address: account } = useWallet();
+  const [limitOrderDraft, setLimitOrderDraft] = useState<LimitOrderDraft>();
 
   // Resolve the AMM address from the static catalog or user-created markets.
-  const { data: userMarkets = [] } = useQuery({ queryKey: ['user-markets'], queryFn: fetchUserMarkets });
+  const { data: userMarkets = [] } = useQuery({
+    queryKey: ['user-markets'],
+    queryFn: fetchUserMarkets,
+  });
   const known =
-    STATIC_MARKETS.find((m) => m.address?.toLowerCase() === address?.toLowerCase()) ??
+    STATIC_MARKETS.find(
+      (m) => m.address?.toLowerCase() === address?.toLowerCase(),
+    ) ??
     userMarkets.find((m) => m.address.toLowerCase() === address?.toLowerCase());
-  const amm = (known && 'ammAddress' in known ? known.ammAddress : undefined) as Address | undefined;
-  const clob = (known && 'clobAddress' in known ? known.clobAddress : undefined) as Address | undefined;
+  const amm = (
+    known && 'ammAddress' in known ? known.ammAddress : undefined
+  ) as Address | undefined;
+  const clob = (
+    known && 'clobAddress' in known ? known.clobAddress : undefined
+  ) as Address | undefined;
 
   const ms = useMarketState(market);
   const state = useAmmState(market, amm);
-  const balances = useTokenBalances(market, ms.longTokenAddress, ms.shortTokenAddress);
+  const balances = useTokenBalances(
+    market,
+    ms.longTokenAddress,
+    ms.shortTokenAddress,
+  );
   const settlePos = useSettlePosition(market);
 
   const { data: arctAllowanceToOo } = useReadContract({
@@ -54,7 +73,8 @@ export default function MarketDetail() {
       <div className="space-y-4">
         <BackLink />
         <div className="corner-markers border border-border bg-card p-10 text-center text-muted-foreground">
-          Market not found or AMM address unavailable. Run the deploy + <code>bun run sync-env</code>.
+          Market not found or AMM address unavailable. Run the deploy +{' '}
+          <code>bun run sync-env</code>.
         </div>
       </div>
     );
@@ -63,8 +83,18 @@ export default function MarketDetail() {
   async function redeem() {
     if (!balances.longBalance && !balances.shortBalance) return;
     toast.message('Redeeming positions…');
-    await settlePos.settle(balances.longBalance ?? 0n, balances.shortBalance ?? 0n);
+    await settlePos.settle(
+      balances.longBalance ?? 0n,
+      balances.shortBalance ?? 0n,
+    );
     toast.success('Redeem submitted');
+  }
+
+  function selectLimitOrderPrice(selection: LimitOrderSelection) {
+    setLimitOrderDraft((current) => ({
+      ...selection,
+      revision: (current?.revision ?? 0) + 1,
+    }));
   }
 
   return (
@@ -73,10 +103,14 @@ export default function MarketDetail() {
 
       <div className="corner-markers border border-border bg-card p-5">
         <div className="mb-2 flex items-center gap-3">
-          <span className={`data-label ${state.resolved ? 'text-warning' : 'text-success'}`}>
+          <span
+            className={`data-label ${state.resolved ? 'text-warning' : 'text-success'}`}
+          >
             {state.resolved ? '● RESOLVED' : '● LIVE'}
           </span>
-          <span className="font-mono text-data-xs text-muted-foreground">{market}</span>
+          <span className="font-mono text-data-xs text-muted-foreground">
+            {market}
+          </span>
         </div>
         <h1 className="font-sans text-heading-md font-bold">{title}</h1>
       </div>
@@ -86,8 +120,16 @@ export default function MarketDetail() {
           <PriceChart yes={yes} seed={market} live={!state.resolved} />
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="YES PRICE" value={fmtPricePct(state.yesPrice)} accent="success" />
-            <Stat label="NO PRICE" value={fmtPricePct(state.noPrice)} accent="destructive" />
+            <Stat
+              label="YES PRICE"
+              value={fmtPricePct(state.yesPrice)}
+              accent="success"
+            />
+            <Stat
+              label="NO PRICE"
+              value={fmtPricePct(state.noPrice)}
+              accent="destructive"
+            />
             <Stat label="RESERVE YES" value={fmtToken(state.reserveYes)} />
             <Stat label="RESERVE NO" value={fmtToken(state.reserveNo)} />
           </div>
@@ -98,28 +140,44 @@ export default function MarketDetail() {
             {account ? (
               <>
                 <div className="grid grid-cols-3 gap-3">
-                  <Stat label="USDC" value={formatCollateral(balances.arctBalance)} />
-                  <Stat label="YES TOKENS" value={formatCollateral(balances.longBalance)} accent="success" />
-                  <Stat label="NO TOKENS" value={formatCollateral(balances.shortBalance)} accent="destructive" />
+                  <Stat
+                    label="USDC"
+                    value={formatCollateral(balances.arctBalance)}
+                  />
+                  <Stat
+                    label="YES TOKENS"
+                    value={formatCollateral(balances.longBalance)}
+                    accent="success"
+                  />
+                  <Stat
+                    label="NO TOKENS"
+                    value={formatCollateral(balances.shortBalance)}
+                    accent="destructive"
+                  />
                 </div>
-                {ms.receivedSettlementPrice && (balances.longBalance || balances.shortBalance) ? (
+                {ms.receivedSettlementPrice &&
+                (balances.longBalance || balances.shortBalance) ? (
                   <Button
                     className="mt-3 w-full"
                     disabled={settlePos.isPending || settlePos.isConfirming}
                     onClick={redeem}
                   >
-                    {settlePos.isPending || settlePos.isConfirming ? 'Redeeming…' : 'Redeem positions for USDC'}
+                    {settlePos.isPending || settlePos.isConfirming
+                      ? 'Redeeming…'
+                      : 'Redeem positions for USDC'}
                   </Button>
                 ) : null}
               </>
             ) : (
-              <p className="text-data-sm text-muted-foreground">Connect a wallet to see your positions.</p>
+              <p className="text-data-sm text-muted-foreground">
+                Connect a wallet to see your positions.
+              </p>
             )}
           </div>
 
           <p className="text-data-xs text-muted-foreground">
-            Fee: {state.feeBps ? `${Number(state.feeBps) / 100}%` : '—'} · Constant-product AMM · Resolution by UMA
-            Optimistic Oracle V2 ·{' '}
+            Fee: {state.feeBps ? `${Number(state.feeBps) / 100}%` : '—'} ·
+            Constant-product AMM · Resolution by UMA Optimistic Oracle V2 ·{' '}
             {ms.receivedSettlementPrice
               ? `Settled @ ${formatUnits(ms.settlementPrice ?? 0n, 18)}`
               : 'Awaiting resolution'}
@@ -141,6 +199,7 @@ export default function MarketDetail() {
             resolved={state.resolved}
             arctAllowanceToOo={arctAllowanceToOo as bigint | undefined}
             yesPrice={yes}
+            limitOrderDraft={limitOrderDraft}
           />
           <OrderBook
             market={market}
@@ -152,6 +211,7 @@ export default function MarketDetail() {
             reserveNo={Number(formatUnits(state.reserveNo ?? 0n, 6))}
             feeBps={Number(state.feeBps ?? 200n)}
             yesPrice={yes}
+            onSelectLimitPrice={selectLimitOrderPrice}
           />
         </div>
       </div>
@@ -159,14 +219,26 @@ export default function MarketDetail() {
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: 'success' | 'destructive' }) {
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: 'success' | 'destructive';
+}) {
   return (
     <div className="corner-markers border border-border bg-surface p-3">
       <div className="data-label">{label}</div>
       <div
         className={
           'mt-1 font-mono text-data-lg ' +
-          (accent === 'success' ? 'text-success' : accent === 'destructive' ? 'text-destructive' : 'text-foreground')
+          (accent === 'success'
+            ? 'text-success'
+            : accent === 'destructive'
+              ? 'text-destructive'
+              : 'text-foreground')
         }
       >
         {value}

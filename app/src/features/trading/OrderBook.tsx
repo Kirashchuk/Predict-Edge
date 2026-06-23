@@ -21,6 +21,7 @@ import {
   useClobAllowances,
   useClobOrderBook,
 } from "./hooks/useClob";
+import type { LimitOrderSelection } from "./limit-order-draft";
 
 interface OrderBookProps {
   market: Address;
@@ -32,6 +33,7 @@ interface OrderBookProps {
   reserveNo: number;
   feeBps: number;
   yesPrice: number; // 0..1
+  onSelectLimitPrice?: (selection: LimitOrderSelection) => void;
 }
 
 const PRICE_SCALE = parseEther("1");
@@ -49,6 +51,12 @@ function formatBookAmount(amount: number): string {
   if (amount >= 1000) return amount.toFixed(0);
   if (amount >= 1) return amount.toFixed(2);
   return amount.toFixed(4);
+}
+
+function formatLimitPrice(price: number): string {
+  const pct = price * 100;
+  if (!Number.isFinite(pct)) return "";
+  return pct.toFixed(1).replace(/\.0$/, "");
 }
 
 type BookSide = "ask" | "bid";
@@ -106,6 +114,7 @@ function CombinedRow({
   busy,
   canFill,
   maxDepth,
+  onSelectPrice,
   onCancel,
   onFill,
 }: {
@@ -114,21 +123,32 @@ function CombinedRow({
   busy: boolean;
   canFill: boolean;
   maxDepth: number;
+  onSelectPrice: (level: CombinedBookLevel) => void;
   onCancel: (order: ClobOrder) => void;
   onFill: (order: ClobOrder) => void;
 }) {
   const color = level.side === "bid" ? "text-success" : "text-destructive";
   const bar = level.side === "bid" ? "bg-success/15" : "bg-destructive/15";
   const depthPct = Math.min(100, Math.max(3, (level.depth / maxDepth) * 100));
+  const limitPrice = formatLimitPrice(level.price);
   return (
     <div className="relative grid min-h-8 grid-cols-[0.9fr_0.9fr_0.9fr_auto] items-center gap-2 overflow-hidden px-2 py-1 text-data-xs">
       <div
         className={`absolute inset-y-0 right-0 ${bar}`}
         style={{ width: `${depthPct}%` }}
       />
-      <span className={`relative font-mono ${color}`}>
+      <button
+        type="button"
+        aria-label={`Use ${limitPrice}% for ${level.side === "bid" ? "buy" : "sell"} limit`}
+        className={`relative text-left font-mono ${color} transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gold`}
+        data-limit-price={limitPrice}
+        data-limit-side={level.side === "bid" ? "buy" : "sell"}
+        data-limit-source={level.kind}
+        onClick={() => onSelectPrice(level)}
+        title="Use price for limit"
+      >
         {(level.price * 100).toFixed(1)}%
-      </span>
+      </button>
       <span className="relative text-right font-mono text-muted-foreground">
         {formatBookAmount(level.size)}
       </span>
@@ -175,6 +195,7 @@ export function OrderBook({
   reserveYes,
   reserveNo,
   feeBps,
+  onSelectLimitPrice,
 }: OrderBookProps) {
   const { address, isConnected } = useWallet();
   const [outcome, setOutcome] = useState<ClobOutcome>(CLOB_OUTCOME.Yes);
@@ -192,6 +213,7 @@ export function OrderBook({
   const bestAsk = clobBook.asks[0];
   const crossed = Boolean(bestBid && bestAsk && bestBid.price >= bestAsk.price);
   const busy = actions.isPending || actions.isConfirming;
+  const selectedOutcome = outcome === CLOB_OUTCOME.Yes ? "yes" : "no";
 
   const { asks, bids, maxDepth, bestAskPrice, bestBidPrice } = useMemo(() => {
     const ammAsks =
@@ -282,6 +304,17 @@ export function OrderBook({
     }
   }
 
+  function selectPrice(level: CombinedBookLevel) {
+    const price = formatLimitPrice(level.price);
+    if (!price) return;
+    onSelectLimitPrice?.({
+      outcome: selectedOutcome,
+      price,
+      side: level.side === "bid" ? "buy" : "sell",
+      source: level.kind,
+    });
+  }
+
   const spreadLabel =
     bestBidPrice !== undefined && bestAskPrice !== undefined
       ? `${(bestBidPrice * 100).toFixed(1)} / ${(bestAskPrice * 100).toFixed(1)}`
@@ -336,6 +369,7 @@ export function OrderBook({
               }
               busy={busy}
               maxDepth={maxDepth}
+              onSelectPrice={selectPrice}
               canFill={level.kind === "clob" && bestAsk?.id === level.order.id}
               onCancel={cancel}
               onFill={fill}
@@ -379,6 +413,7 @@ export function OrderBook({
               }
               busy={busy}
               maxDepth={maxDepth}
+              onSelectPrice={selectPrice}
               canFill={level.kind === "clob" && bestBid?.id === level.order.id}
               onCancel={cancel}
               onFill={fill}
