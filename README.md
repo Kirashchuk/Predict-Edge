@@ -140,6 +140,7 @@ no need to set it manually.
 | `bun run deploy` | Deploy UMA stack + market + AMM + CLOB (USDC) to Arc Testnet |
 | `bun run deploy:clob` | Deploy only a CLOB for the current `DEPLOY_MARKET_ADDRESS` |
 | `bun run verify-deploy` | Read back on-chain state (reserves, prices, balances) |
+| `bun run memo:payment` | Send a small USDC transfer through Arc's Memo contract and verify memo logs |
 | `bun run sync-env` | Copy deployed addresses into `app/.env.local` as `VITE_*` |
 | `bun run keeper` | Scan configured CLOBs and auto-match crossed bid/ask orders |
 | `bun run generate-wallet` | Generate a fresh local deployer wallet |

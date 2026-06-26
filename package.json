@@ -11,6 +11,7 @@
     "deploy": "hardhat run scripts/deploy.ts --network arcTestnet",
     "deploy:clob": "hardhat run scripts/deploy-clob.ts --network arcTestnet",
     "verify-deploy": "bun run scripts/verify-deploy.ts",
+    "memo:payment": "bun run scripts/send-memo-payment.ts",
     "keeper": "bun run scripts/keeper.ts",
     "generate-wallet": "bun run scripts/generate-wallet.ts",
     "sync-env": "bun run scripts/sync-env.ts",
